@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processing Leads — Sales Intelligence</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="navbar-brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
+                    <polyline points="7.5 19.79 7.5 14.6 3 12"/>
+                    <polyline points="21 12 16.5 14.6 16.5 19.79"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+                <span>Sales Intelligence</span>
+            </a>
+            <span class="navbar-meta">Processing Leads</span>
+        </div>
+    </nav>
+
+    <section class="processing-section">
+        <div class="container">
+
+            <div class="processing-header">
+                <h2>Analyzing Your Leads</h2>
+                <p id="status-text">Starting pipeline...</p>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar" style="width: 4%"></div>
+            </div>
+            <div class="progress-text" id="progress-text">0 / 0 completed</div>
+
+            <!-- Status Table -->
+            <div class="status-table" id="status-table">
+                <div class="status-row" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                    <span class="spinner"></span>
+                    <span style="margin-left: 0.8rem;">Loading lead status...</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons (shown when complete) -->
+            <div id="action-buttons" class="text-center mt-3 hidden">
+                <a href="/results/{{ job_id }}" class="btn-primary" style="display: inline-flex; text-decoration: none; width: auto; padding: 0.9rem 2.5rem;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    View Results
+                </a>
+            </div>
+
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <span>Sales Intelligence Automator</span>
+                <span>Powered by Groq + LLaMA 3.1</span>
+            </div>
+        </div>
+    </footer>
+
+</div>
+
+<script>
+const jobId = "{{ job_id }}";
+const statusLabels = {
+    queued: "Queued",
+    resolving_url: "Resolving URL",
+    scraping: "Scraping",
+    cleaning: "Cleaning",
+    analyzing: "Analyzing",
+    completed: "Done",
+    error: "Error"
+};
+
+function renderLeads(leads) {
+    const table = document.getElementById('status-table');
+    let html = '';
+
+    leads.forEach(lead => {
+        const statusClass = lead.status || 'queued';
+        const statusText = statusLabels[statusClass] || statusClass;
+        const isActive = !['completed', 'error', 'queued'].includes(statusClass);
+
+        html += `
+        <div class="status-row">
+            <span class="company">${escapeHtml(lead.company_name || 'Unknown')}</span>
+            <span class="raw-input">${escapeHtml(lead.raw_input)}</span>
+            <span class="status-badge ${statusClass}">
+                ${isActive ? '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span>' : ''}
+                ${statusText}
+            </span>
+        </div>`;
+    });
+
+    table.innerHTML = html;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function pollStatus() {
+    try {
+        const response = await fetch(`/api/status/${jobId}`);
+        const data = await response.json();
+
+        // Update progress
+        const percent = data.lead_count > 0
+            ? Math.round((data.completed_count / data.lead_count) * 100)
+            : 0;
+
+        document.getElementById('progress-bar').style.width = Math.max(4, percent) + '%';
+        document.getElementById('progress-text').textContent = `${data.completed_count} / ${data.lead_count} completed`;
+
+        // Update status text
+        if (data.status === 'completed') {
+            document.getElementById('status-text').textContent = 'All leads processed successfully';
+            document.getElementById('action-buttons').classList.remove('hidden');
+        } else {
+            const analyzing = data.leads.filter(l =>
+                !['completed', 'error', 'queued'].includes(l.status)
+            ).length;
+            document.getElementById('status-text').textContent =
+                `Processing ${analyzing} lead${analyzing !== 1 ? 's' : ''} ...`;
+        }
+
+        // Render lead rows
+        renderLeads(data.leads);
+
+        // Continue polling if not done
+        if (data.status !== 'completed') {
+            setTimeout(pollStatus, 3000);
+        }
+
+    } catch (err) {
+        console.error('Polling error:', err);
+        setTimeout(pollStatus, 5000);
+    }
+}
+
+// Start polling
+pollStatus();
+</script>
+</body>
+</html>
