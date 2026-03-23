@@ -1050,3 +1050,336 @@ textarea::placeholder {
 .lead-card:nth-child(3) { animation-delay: 0.1s; }
 .lead-card:nth-child(4) { animation-delay: 0.15s; }
 .lead-card:nth-child(5) { animation-delay: 0.2s; }
+
+/* ============================================================
+   Step-Based Discovery UI
+   ============================================================ */
+
+/* --- Step Titles --- */
+.step-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1.2rem;
+    letter-spacing: -0.02em;
+}
+
+.step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent-lavender);
+    color: white;
+    font-size: 0.82rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.step-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.2rem;
+}
+
+/* --- Discovery Form --- */
+.discover-form-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.discover-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.discover-field input[type="text"],
+.discover-field select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    transition: var(--transition);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    height: 44px;
+    box-sizing: border-box;
+}
+
+.discover-field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8A9A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-color: var(--bg-primary);
+    padding-right: 2.5rem;
+    cursor: pointer;
+}
+
+.discover-field input[type="text"]:focus,
+.discover-field select:focus {
+    outline: none;
+    border-color: var(--accent-lavender);
+    box-shadow: 0 0 0 3px var(--accent-lavender-light);
+}
+
+.discover-field input[type="text"]::placeholder {
+    color: var(--text-light);
+}
+
+/* --- Loading Screen --- */
+.loading-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 3rem 2rem;
+    text-align: center;
+}
+
+.loading-spinner-large {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent-lavender);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1.5rem;
+}
+
+.loading-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.loading-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+.loading-steps {
+    max-width: 420px;
+    margin: 0 auto;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.loading-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.loading-step.active {
+    background: var(--accent-lavender-light);
+    color: #5A4D8A;
+    font-weight: 500;
+}
+
+.loading-step.done {
+    color: var(--accent-sage);
+    font-weight: 500;
+}
+
+.loading-step-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.loading-step.active .loading-step-icon {
+    background: var(--accent-lavender);
+    color: white;
+}
+
+.loading-step.done .loading-step-icon {
+    background: var(--accent-sage-light);
+    color: var(--accent-sage);
+}
+
+/* --- Discovered Companies List --- */
+.discovered-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.discovered-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.2rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+    animation: fadeInUp 0.3s ease forwards;
+    opacity: 0;
+}
+
+.discovered-item:nth-child(1) { animation-delay: 0.0s; }
+.discovered-item:nth-child(2) { animation-delay: 0.06s; }
+.discovered-item:nth-child(3) { animation-delay: 0.12s; }
+.discovered-item:nth-child(4) { animation-delay: 0.18s; }
+.discovered-item:nth-child(5) { animation-delay: 0.24s; }
+
+.discovered-item:hover {
+    border-color: var(--accent-lavender);
+    box-shadow: var(--shadow-sm);
+}
+
+.discovered-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.discovered-item-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.15rem;
+}
+
+.discovered-item-url {
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--accent-lavender);
+    margin-bottom: 0.3rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.discovered-item-snippet {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.discover-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* Remove (✕) button on discovered company cards */
+.btn-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+    line-height: 1;
+}
+
+.btn-remove:hover {
+    background: var(--accent-rose-light);
+    color: var(--accent-rose);
+}
+
+/* --- Add More Section --- */
+.add-more-section {
+    border-top: 1px solid var(--border-light);
+    padding-top: 1.2rem;
+}
+
+.add-more-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.4rem;
+}
+
+.add-more-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+}
+
+#extra_leads {
+    width: 100%;
+    min-height: 120px;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    resize: vertical;
+    transition: var(--transition);
+    line-height: 1.8;
+}
+
+#extra_leads:focus {
+    outline: none;
+    border-color: var(--accent-lavender);
+    box-shadow: 0 0 0 3px var(--accent-lavender-light);
+}
+
+#extra_leads::placeholder {
+    color: var(--text-light);
+}
+
+/* --- Action Buttons --- */
+.btn-analyze {
+    margin-top: 1.5rem;
+}
+
+.btn-back {
+    margin-top: 0.75rem;
+    width: 100%;
+    justify-content: center;
+}
+
+/* --- Responsive --- */
+@media (max-width: 640px) {
+    .discover-form-row {
+        grid-template-columns: 1fr !important;
+    }
+}
+

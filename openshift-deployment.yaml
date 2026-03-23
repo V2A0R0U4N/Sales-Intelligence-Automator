@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sales-intelligence
+  labels:
+    app: sales-intelligence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sales-intelligence
+  template:
+    metadata:
+      labels:
+        app: sales-intelligence
+    spec:
+      containers:
+        - name: web
+          image: image-registry.openshift-image-registry.svc:5000/varunpatels2004-dev/sales-intelligence:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: sales-intelligence-secrets
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: dshm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sales-intelligence-svc
+spec:
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: sales-intelligence
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: sales-intelligence-route
+spec:
+  to:
+    kind: Service
+    name: sales-intelligence-svc
+  port:
+    targetPort: 8000
+  tls:
+    termination: edge

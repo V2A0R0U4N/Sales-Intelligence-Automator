@@ -14,11 +14,12 @@ from typing import Optional
 class ParsedLead(BaseModel):
     """Represents a parsed lead input line."""
     raw_input: str
-    input_type: str = Field(description="'url' or 'name_only'")
+    input_type: str = Field(description="'url', 'name_only', 'name_and_url', or 'region_query'")
     url: Optional[str] = None
     company_name: Optional[str] = None
     location: Optional[str] = None
     service_hint: Optional[str] = None
+    category: Optional[str] = None  # For region_query type
 
 
 # ---------------------

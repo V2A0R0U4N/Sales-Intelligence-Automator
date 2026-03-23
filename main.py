@@ -7,6 +7,8 @@ import asyncio
 import csv
 import io
 import json
+import re
+from typing import Optional, List, Dict
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
@@ -20,8 +22,10 @@ from models.database import (
     increment_job_completed, create_lead, update_lead, get_leads_by_job,
 )
 from pipeline.input_parser import parse_leads
+from models.schemas import ParsedLead
 from pipeline.scraper_v2 import scrape_lead
 from pipeline.llm_analyzer import analyze_lead
+from pipeline.region_discovery import discover_companies, CATEGORIES
 
 
 # --- Concurrency control ---
@@ -57,7 +61,10 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/", response_class=HTMLResponse)
 async def index_page(request: Request):
     """Lead input page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request, name="index.html",
+        context={"request": request, "categories": CATEGORIES},
+    )
 
 
 @app.get("/processing/{job_id}", response_class=HTMLResponse)
@@ -66,11 +73,12 @@ async def processing_page(request: Request, job_id: str):
     job = await get_job(job_id)
     if not job:
         return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "error": "Job not found. Please submit new leads."},
+            request=request,
+            name="index.html",
+            context={"request": request, "error": "Job not found. Please submit new leads."},
         )
     return templates.TemplateResponse(
-        "processing.html", {"request": request, "job_id": job_id}
+        request=request, name="processing.html", context={"request": request, "job_id": job_id}
     )
 
 
@@ -80,8 +88,9 @@ async def results_page(request: Request, job_id: str):
     job = await get_job(job_id)
     if not job:
         return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "error": "Job not found. Please submit new leads."},
+            request=request,
+            name="index.html",
+            context={"request": request, "error": "Job not found. Please submit new leads."},
         )
 
     leads = await get_leads_by_job(job_id)
@@ -90,7 +99,7 @@ async def results_page(request: Request, job_id: str):
     leads.sort(key=lambda x: (0 if x.get("status") == "completed" else 1, x.get("company_name", "")))
 
     return templates.TemplateResponse(
-        "results.html", {"request": request, "job": job, "leads": leads}
+        request=request, name="results.html", context={"request": request, "job": job, "leads": leads}
     )
 
 
@@ -98,25 +107,130 @@ async def results_page(request: Request, job_id: str):
 # API Routes
 # ====================================================================
 
+def validate_region_input(region: str) -> Optional[str]:
+    if not region or len(region) < 2:
+        return "Region must be at least 2 characters long."
+    if len(region) > 50:
+        return "Region is too long. Please provide a valid city/country name."
+    # Basic math or garbage checks
+    if re.search(r"\d+\s*[\+\-\*/=]\s*\d+", region):
+        return "Please enter a valid region name, not an equation."
+    # Basic conversational / prompt checks
+    prmpt_pattern = r"^(tell me|what is|how do|write a|create a|give me|can you|help me|explain|find)"
+    if re.search(prmpt_pattern, region.lower()):
+        return "Please enter just the region name (e.g., 'London' or 'New York')."
+    return None
+
+@app.post("/api/discover")
+async def discover_region(request: Request):
+    """Discover companies by region + category."""
+    body = await request.json()
+    region = body.get("region", "").strip()
+    category = body.get("category", "technology").strip()
+
+    if not region:
+        return JSONResponse({"error": "Region is required"}, status_code=400)
+    
+    validation_error = validate_region_input(region)
+    if validation_error:
+        return JSONResponse({"error": validation_error}, status_code=400)
+
+    # Run blocking search in thread pool
+    loop = asyncio.get_running_loop()
+    companies = await loop.run_in_executor(
+        None, discover_companies, region, category, 35
+    )
+
+    return JSONResponse({
+        "region": region,
+        "category": category,
+        "category_label": CATEGORIES.get(category, category),
+        "count": len(companies),
+        "companies": companies,
+    })
+
+
 @app.post("/api/analyze")
-async def submit_leads(request: Request, leads_text: str = Form(...)):
-    """Accept leads text, create job, start background processing."""
-    # Parse input
-    parsed = parse_leads(leads_text)
+async def submit_leads(
+    request: Request,
+    leads_text: str = Form(None),
+    selected_companies: str = Form(None),
+):
+    """
+    Accept leads text OR selected discovered companies.
+    Creates job and starts background processing.
+    """
+    parsed = []
+
+    # Option 1: Selected companies from discovery (JSON list)
+    if selected_companies:
+        try:
+            companies = json.loads(selected_companies)
+            for comp in companies:
+                parsed.append(ParsedLead(
+                    raw_input=comp.get("name", "Unknown"),
+                    input_type="url" if comp.get("url") else "name_only",
+                    url=comp.get("url"),
+                    company_name=comp.get("name", "Unknown"),
+                    location=comp.get("region"),
+                    category=comp.get("category"),
+                ))
+        except json.JSONDecodeError:
+            pass
+
+    # Option 2: Raw text input (ALSO add, not either/or)
+    if leads_text and leads_text.strip():
+        extra_parsed = parse_leads(leads_text)
+        parsed.extend(extra_parsed)
 
     if not parsed:
         return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "error": "No valid leads found. Please enter at least one lead."},
+            request=request, name="index.html",
+            context={
+                "request": request,
+                "categories": CATEGORIES,
+                "error": "No valid leads found. Please enter at least one lead.",
+            },
+            status_code=400,
+        )
+
+    # Handle region queries — discover companies first, then analyze each
+    final_parsed = []
+    for lead in parsed:
+        if lead.input_type == "region_query":
+            loop = asyncio.get_running_loop()
+            companies = await loop.run_in_executor(
+                None, discover_companies,
+                lead.location or "", lead.category or "technology", 5
+            )
+            for comp in companies:
+                final_parsed.append(ParsedLead(
+                    raw_input=comp["name"],
+                    input_type="url",
+                    url=comp["url"],
+                    company_name=comp["name"],
+                    location=lead.location,
+                ))
+        else:
+            final_parsed.append(lead)
+
+    if not final_parsed:
+        return templates.TemplateResponse(
+            request=request, name="index.html",
+            context={
+                "request": request,
+                "categories": CATEGORIES,
+                "error": "Could not find any companies for that region. Try a different search.",
+            },
             status_code=400,
         )
 
     # Create job
-    job_id = await create_job(len(parsed))
+    job_id = await create_job(len(final_parsed))
 
     # Create lead documents in DB
     lead_ids = []
-    for lead in parsed:
+    for lead in final_parsed:
         lead_doc = {
             "job_id": job_id,
             "raw_input": lead.raw_input,
