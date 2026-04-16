@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Results — Sales Intelligence</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v=7">
 </head>
 <body>
 <div class="page-wrapper">
@@ -13,7 +13,7 @@
     <nav class="navbar">
         <div class="container">
             <a href="/" class="navbar-brand">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
                     <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
                     <polyline points="7.5 19.79 7.5 14.6 3 12"/>
@@ -34,28 +34,13 @@
             <h2>Lead Analysis Results</h2>
             <div class="results-actions">
                 <a href="/api/export/{{ job.job_id }}/csv" class="btn-secondary">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Export CSV
                 </a>
-                <a href="/api/export/{{ job.job_id }}/json" class="btn-secondary">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Export JSON
-                </a>
-                <a href="/" class="btn-secondary">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    New Analysis
-                </a>
+                <a href="/api/export/{{ job.job_id }}/json" class="btn-secondary">Export JSON</a>
+                {% if config.get('GOOGLE_SHEETS_SPREADSHEET_ID') %}
+                <a href="https://docs.google.com/spreadsheets/d/{{ config.get('GOOGLE_SHEETS_SPREADSHEET_ID') }}" target="_blank" class="btn-secondary">Open CRM Sheet</a>
+                {% endif %}
             </div>
         </div>
 
@@ -65,407 +50,796 @@
         {% set error_leads = leads | selectattr('status', 'equalto', 'error') | list %}
         {% set not_fit_leads = [] %}
         {% for lead in completed_leads %}
-            {% if lead.get('brief', {}).get('b2b_qualified', false) %}
-                {% set _ = b2b_leads.append(lead) %}
-            {% endif %}
-            {% if lead.get('icp_match', {}).get('is_good_fit') == false %}
-                {% set _ = not_fit_leads.append(lead) %}
-            {% endif %}
+            {% if lead.get('brief', {}).get('b2b_qualified', false) %}{% set _ = b2b_leads.append(lead) %}{% endif %}
+            {% if lead.get('icp_match', {}).get('is_good_fit') == false %}{% set _ = not_fit_leads.append(lead) %}{% endif %}
         {% endfor %}
 
-        <div class="results-stats">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.8rem;margin-bottom:1.5rem;">
+            {% for stat_val, stat_label, stat_color in [
+                (leads|length, 'Total Leads', 'var(--text-primary)'),
+                (completed_leads|length, 'Analyzed', 'var(--accent-purple)'),
+                (b2b_leads|length, 'B2B Qualified', 'var(--accent-emerald)'),
+                (not_fit_leads|length, 'Not Fit', 'var(--accent-rose)'),
+                (error_leads|length, 'Errors', 'var(--accent-amber)')
+            ] %}
             <div class="stat-card">
-                <div class="stat-value">{{ leads | length }}</div>
-                <div class="stat-label">Total Leads</div>
+                <div class="stat-value" style="color:{{ stat_color }};">{{ stat_val }}</div>
+                <div class="stat-label">{{ stat_label }}</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ completed_leads | length }}</div>
-                <div class="stat-label">Analyzed</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ b2b_leads | length }}</div>
-                <div class="stat-label">B2B Qualified</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ not_fit_leads | length }}</div>
-                <div class="stat-label">Not a Good Fit</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ error_leads | length }}</div>
-                <div class="stat-label">Errors</div>
-            </div>
-        </div>
-
-        <!-- Filter Bar -->
-        <div class="filter-bar">
-            <button class="filter-btn active" onclick="filterLeads('all')">All</button>
-            <button class="filter-btn" onclick="filterLeads('b2b-yes')">B2B Qualified</button>
-            <button class="filter-btn" onclick="filterLeads('b2b-no')">Not Qualified</button>
-            <button class="filter-btn" onclick="filterLeads('not-fit')">Not a Good Fit</button>
-            <button class="filter-btn" onclick="filterLeads('error')">Errors</button>
+            {% endfor %}
         </div>
 
         <!-- Lead Cards -->
-        <div class="lead-cards" id="lead-cards">
-
+        <div id="lead-cards">
         {% for lead in leads %}
             {% set brief = lead.get('brief', {}) %}
             {% set icp = lead.get('icp_match', {}) %}
             {% set market = lead.get('market_context', {}) %}
             {% set email = lead.get('outreach_email', {}) %}
-            {% set objections = lead.get('objection_prep', {}).get('objections', []) %}
+            {% set objections = lead.get('objection_prep', {}) %}
+            {% set enriched = lead.get('enriched_data', {}) %}
+            {% set agents_data = lead.get('agent_insights', {}) %}
+            {% set insights = agents_data.get('agent_insights', {}) %}
+            {% set lid = lead.get('lead_id', '') %}
 
-            <div class="lead-card" data-b2b="{{ 'yes' if brief.get('b2b_qualified') else 'no' }}" data-status="{{ lead.get('status', 'error') }}" data-fit="{{ 'no' if icp.get('is_good_fit') == false else 'yes' }}">
+            {% if lead.get('status') == 'completed' %}
+            <div class="lead-card animate-in" data-lead-id="{{ lid }}" data-company-name="{{ lead.get('company_name', '') }}" style="animation-delay: {{ loop.index0 * 0.1 }}s;">
 
                 <!-- Header -->
                 <div class="lead-card-header">
                     <div>
-                        <div class="lead-card-title">{{ lead.get('company_name', 'Unknown Company') }}</div>
-                        <div class="lead-card-url">
-                            {% if lead.get('website') %}
-                            <a href="{{ lead.get('website') }}" target="_blank" rel="noopener">{{ lead.get('website') }}</a>
-                            {% else %}
-                            <span>No website resolved</span>
-                            {% endif %}
-                        </div>
+                        <h3>{{ lead.get('company_name', 'Unknown') }}</h3>
+                        <a href="{{ lead.get('website', '#') }}" target="_blank" class="website-link">{{ lead.get('website', '') }}</a>
                     </div>
-                    <div class="lead-card-badges">
-                        {% if lead.get('status') == 'completed' %}
-                            {% if brief.get('b2b_qualified') %}
-                            <span class="badge badge-b2b-yes">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><polyline points="20 6 9 17 4 12"/></svg>
-                                B2B Qualified
-                            </span>
-                            {% else %}
-                            <span class="badge badge-b2b-no">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                Not B2B
-                            </span>
-                            {% endif %}
+                    <div class="lead-badges">
+                        {% if brief.get('b2b_qualified') %}
+                        <span class="badge badge-qualified">✓ B2B</span>
+                        {% else %}
+                        <span class="badge badge-not-qualified">✗ Not B2B</span>
+                        {% endif %}
 
-                            <span class="badge badge-confidence-{{ brief.get('research_confidence', 'low') }}">
-                                {{ brief.get('research_confidence', 'low') | capitalize }} Confidence
-                            </span>
+                        {% set confidence = brief.get('research_confidence', 'low') %}
+                        <span class="badge badge-confidence-{{ confidence }}">{{ confidence }} confidence</span>
 
-                            {% if lead.get('thin_content') or market.get('ai_inferred') %}
-                            <span class="badge badge-ai-inferred">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;">
-                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                                </svg>
-                                AI-Inferred
-                            </span>
-                            {% endif %}
+                        {% if icp.get('best_fit_vertical') and icp.get('best_fit_vertical') != 'None' %}
+                        <span class="badge badge-best-fit">{{ icp.get('best_fit_vertical') }}</span>
+                        {% endif %}
 
-                            {% if icp.get('is_good_fit') == false %}
-                            <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 600;">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                Not a Good Fit
-                            </span>
-                            {% endif %}
-
-                            {% if lead.get('name_mismatch_warning') %}
-                            <span class="badge" style="background: #fef3c7; color: #92400e;">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                                Website Unverified
-                            </span>
-                            {% endif %}
-
-                            {% if icp.get('best_fit_vertical') and icp.get('best_fit_vertical') != 'None' %}
-                            <span class="badge badge-vertical">{{ icp.get('best_fit_vertical') }}</span>
-                            {% endif %}
-                        {% elif lead.get('status') == 'error' %}
-                            <span class="badge" style="background: var(--accent-rose-light); color: #8B4F45;">Error</span>
+                        {% set verdict = icp.get('fit_verdict', '') %}
+                        {% if 'Strong' in verdict %}<span class="badge badge-strong">Strong Fit</span>
+                        {% elif 'Potential' in verdict %}<span class="badge badge-potential">Potential Fit</span>
+                        {% elif 'Not' in verdict %}<span class="badge badge-weak">Not a Good Fit</span>
                         {% endif %}
                     </div>
                 </div>
 
-                {% if lead.get('status') == 'error' %}
-                <!-- Error State with detailed explanation -->
-                <div class="lead-card-error">
-                    {% set err_code = lead.get('error_code', 'unknown') %}
-                    {% if err_code == 'dns_failure' %}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                    {% elif err_code == 'connection_timeout' %}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    {% elif err_code == 'ssl_error' %}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    {% elif err_code == 'domain_parked' %}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6"/><path d="M19.78 19.78A2 2 0 0 1 18 21H6a2 2 0 0 1-2-2V5"/></svg>
-                    {% elif err_code == 'url_not_resolved' %}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-                    {% else %}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    {% endif %}
-                    <div>
-                        <span class="error-msg" style="font-weight: 600; display: block; margin-bottom: 4px;">{{ lead.get('error_detail', lead.get('error_message', 'An unknown error occurred.')) }}</span>
-                        {% if err_code == 'dns_failure' or err_code == 'url_not_resolved' %}
-                        <span style="font-size: 0.8rem; color: #6b7280;">💡 Tip: Try searching for this company manually or provide a direct website URL.</span>
-                        {% elif err_code == 'connection_timeout' or err_code == 'server_error' %}
-                        <span style="font-size: 0.8rem; color: #6b7280;">💡 Tip: The website may be temporarily down. Try again later or visit the site manually.</span>
-                        {% elif err_code == 'ssl_error' %}
-                        <span style="font-size: 0.8rem; color: #6b7280;">💡 Tip: The website has security certificate issues. You may still be able to visit it directly in a browser.</span>
-                        {% elif err_code == 'domain_parked' %}
-                        <span style="font-size: 0.8rem; color: #6b7280;">💡 Tip: This domain is inactive. The company may have moved to a different website or is no longer operating.</span>
-                        {% elif err_code == 'access_denied' %}
-                        <span style="font-size: 0.8rem; color: #6b7280;">💡 Tip: The website blocks automated access. Try visiting it manually for research.</span>
-                        {% endif %}
-                    </div>
+                <!-- Tabs -->
+                <div class="lead-tabs">
+                    <div class="lead-tab active" onclick="switchTab(this, 'overview-{{ lid }}')">📊 Overview</div>
+                    <div class="lead-tab" onclick="switchTab(this, 'intel-{{ lid }}')">🔍 Intelligence</div>
+                    <div class="lead-tab" onclick="switchTab(this, 'actions-{{ lid }}')">⚡ Actions</div>
                 </div>
 
-                {% elif lead.get('status') == 'completed' %}
+                <!-- TAB 1: Overview -->
+                <div class="lead-tab-content active" id="overview-{{ lid }}">
 
-                <!-- Brief Fields -->
-                <div class="lead-card-body">
-                    <div class="lead-card-grid">
-                        <div class="field-group">
-                            <div class="field-label">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                                Company Overview
-                            </div>
-                            <div class="field-value">{{ brief.get('company_overview', 'N/A') }}</div>
+                    <div class="info-grid">
+                        <div class="info-block">
+                            <div class="info-block-label">Company Overview</div>
+                            <div class="info-block-value">{{ brief.get('company_overview', 'N/A') }}</div>
                         </div>
-                        <div class="field-group">
-                            <div class="field-label">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-                                Target Customer
-                            </div>
-                            <div class="field-value">{{ brief.get('target_customer', 'N/A') }}</div>
-                        </div>
-                        <div class="field-group" style="grid-column: 1 / -1;">
-                            <div class="field-label">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                                Core Product / Service
-                            </div>
-                            <div class="field-value">{{ brief.get('core_product_service', 'N/A') }}</div>
-                        </div>
-                        <div class="field-group" style="grid-column: 1 / -1;">
-                            <div class="field-label">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                                B2B Qualification Reason
-                            </div>
-                            <div class="field-value">{{ brief.get('b2b_reason', 'N/A') }}</div>
+                        <div class="info-block">
+                            <div class="info-block-label">Core Product / Service</div>
+                            <div class="info-block-value">{{ brief.get('core_product_service', 'N/A') }}</div>
                         </div>
                     </div>
-                </div>
 
-                <!-- ICP Scores -->
-                {% if icp %}
-                <div class="icp-section">
-                    <div class="icp-section-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-                        ICP Vertical Match Scores
-                        {% if icp.get('fit_verdict') %}
-                        <span class="badge" style="margin-left: 0.5rem; background: {{ '#dcfce7' if icp.get('fit_verdict') == 'Strong fit' else '#fef3c7' if icp.get('fit_verdict') == 'Potential fit' else '#fee2e2' if icp.get('fit_verdict') == 'Not a good fit' else '#f3f4f6' }}; color: {{ '#166534' if icp.get('fit_verdict') == 'Strong fit' else '#92400e' if icp.get('fit_verdict') == 'Potential fit' else '#991b1b' if icp.get('fit_verdict') == 'Not a good fit' else '#374151' }};">{{ icp.get('fit_verdict') }}</span>
-                        {% endif %}
-                    </div>
-
-                    {% if icp.get('is_good_fit') == false and icp.get('rejection_reason') %}
-                    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #991b1b; font-size: 0.9rem;">
-                        <strong>⚠ Not a Good Fit:</strong> {{ icp.get('rejection_reason') }}
+                    {% if brief.get('b2b_reason') %}
+                    <div class="info-block" style="margin-bottom:1rem;">
+                        <div class="info-block-label">B2B Qualification Reason</div>
+                        <div class="info-block-value">{{ brief.get('b2b_reason', '') }}</div>
                     </div>
                     {% endif %}
 
-                    <div class="icp-scores">
-                        {% set scores = [
-                            ('MokshTech', icp.get('mokshtech_score', 0)),
-                            ('MokshCAD', icp.get('mokshcad_score', 0)),
-                            ('MokshDigital', icp.get('mokshdigital_score', 0)),
-                            ('MokshSigns', icp.get('mokshsigns_score', 0))
-                        ] %}
-                        {% set vert_explanations = icp.get('vertical_explanations', {}) %}
-                        {% for name, score in scores %}
-                        <div class="icp-score-item">
-                            <span class="icp-score-label">{{ name }}</span>
-                            <div class="icp-score-bar-container">
-                                <div class="icp-score-bar {{ 'high' if score >= 60 else ('medium' if score >= 30 else 'low') }}"
-                                     style="width: {{ score }}%"></div>
-                            </div>
-                            <span class="icp-score-value">{{ score }}</span>
+                    <!-- ICP Scores -->
+                    {% set vs = icp.get('vertical_scores', {}) %}
+                    {% if vs %}
+                    <div class="scores-section">
+                        <div class="section-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-blue);"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            ICP Vertical Match Scores
+                            {% set verdict = icp.get('fit_verdict', '') %}
+                            {% if verdict %}
+                            <span class="badge {% if 'Strong' in verdict %}badge-strong{% elif 'Potential' in verdict %}badge-potential{% else %}badge-weak{% endif %}" style="margin-left:0.5rem;">{{ verdict }}</span>
+                            {% endif %}
                         </div>
-                        {% if vert_explanations.get(name) %}
-                        <div style="font-size: 0.8rem; color: #6b7280; padding-left: 8px; margin-bottom: 8px; border-left: 2px solid #e5e7eb;">{{ vert_explanations.get(name) }}</div>
+
+                        {% set ve = icp.get('vertical_explanations', {}) %}
+                        {% for v_name, v_score in vs.items() %}
+                        <div class="score-row">
+                            <div class="score-label">{{ v_name }}</div>
+                            <div class="score-bar-bg">
+                                <div class="score-bar-fill {% if v_score >= 60 %}high{% elif v_score >= 30 %}medium{% else %}low{% endif %}" style="width: {{ v_score }}%;"></div>
+                            </div>
+                            <div class="score-value" style="color: {% if v_score >= 60 %}var(--accent-emerald){% elif v_score >= 30 %}var(--accent-amber){% else %}var(--accent-rose){% endif %};">{{ v_score }}</div>
+                        </div>
+                        {% if ve.get(v_name) %}
+                        <div class="score-explanation">{{ ve.get(v_name) }}</div>
                         {% endif %}
                         {% endfor %}
                     </div>
-
-                    {% if icp.get('pitch_angle') and icp.get('pitch_angle') != 'Not found in available content' %}
-                    <div class="pitch-angle">{{ icp.get('pitch_angle') }}</div>
                     {% endif %}
 
+                    <!-- Fit Verdict / Pitch Angle -->
+                    {% if icp.get('pitch_angle') %}
+                    <div class="fit-verdict {% if icp.get('is_good_fit') %}good{% else %}bad{% endif %}">
+                        {{ icp.get('pitch_angle', '') }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Recommended Services -->
                     {% if icp.get('recommended_services') %}
-                    <div class="recommended-services">
+                    <div class="recommended-services" style="margin-top:0.6rem;">
                         {% for svc in icp.get('recommended_services', []) %}
                         <span class="service-tag">{{ svc }}</span>
                         {% endfor %}
                     </div>
                     {% endif %}
-                </div>
-                {% endif %}
 
-                <!-- Sales Questions -->
-                <div class="questions-section">
-                    <div class="section-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                        Discovery Questions
-                    </div>
-                    <ul class="question-list">
-                        {% for q_key in ['sales_question_1', 'sales_question_2', 'sales_question_3'] %}
-                        {% set q_val = brief.get(q_key, '') %}
-                        {% if q_val and q_val != 'Not found in available content' %}
-                        <li class="question-item">
-                            <span class="question-number">{{ loop.index }}</span>
-                            <span>{{ q_val }}</span>
-                        </li>
-                        {% endif %}
-                        {% endfor %}
-                    </ul>
-                </div>
-
-                <!-- Market Context (Expandable) -->
-                {% if market and market.get('positioning') %}
-                <div class="expandable-section">
-                    <div class="expandable-header" onclick="toggleSection(this)">
+                    <!-- Discovery Questions -->
+                    <div class="questions-section" style="margin-top:1rem;">
                         <div class="section-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-amber);">
-                                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-                            </svg>
-                            Market Context & Differentiation
-                            {% if market.get('ai_inferred') %}
-                            <span class="badge badge-ai-inferred" style="margin-left: 0.5rem;">AI-Inferred</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-purple);"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            Discovery Questions
+                        </div>
+                        <ul class="question-list">
+                            {% for q_key in ['sales_question_1', 'sales_question_2', 'sales_question_3'] %}
+                            {% set q_val = brief.get(q_key, '') %}
+                            {% if q_val and q_val != 'Not found in available content' %}
+                            <li class="question-item">
+                                <span class="question-number">{{ loop.index }}</span>
+                                <span>{{ q_val }}</span>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <!-- Market Context -->
+                    {% if market and market.get('positioning') %}
+                    <div class="expandable-section" style="margin-top:0.8rem;">
+                        <div class="expandable-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-amber);"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                                Market Context
+                            </div>
+                            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                        <div class="expandable-content">
+                            <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.5rem;">{{ market.get('positioning', '') }}</p>
+                            {% if market.get('differentiation_signals') %}
+                            <p style="font-size:0.82rem;color:var(--text-muted);"><strong style="color:var(--text-secondary);">Differentiation:</strong> {{ market.get('differentiation_signals', '') }}</p>
+                            {% endif %}
+                            {% if market.get('opportunity_gaps') %}
+                            <p style="font-size:0.82rem;color:var(--accent-emerald);margin-top:0.3rem;">💡 {{ market.get('opportunity_gaps', '') }}</p>
                             {% endif %}
                         </div>
-                        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                     </div>
-                    <div class="expandable-content">
-                        {% if market.get('positioning') and market.get('positioning') != 'Not found in available content' %}
-                        <div class="market-block">
-                            <div class="market-block-label">Market Positioning</div>
-                            <div class="market-block-value">{{ market.get('positioning') }}</div>
-                        </div>
-                        {% endif %}
-                        {% if market.get('differentiation_signals') and market.get('differentiation_signals') != 'Not found in available content' %}
-                        <div class="market-block">
-                            <div class="market-block-label">Differentiation Signals</div>
-                            <div class="market-block-value">{{ market.get('differentiation_signals') }}</div>
-                        </div>
-                        {% endif %}
-                        {% if market.get('opportunity_gaps') and market.get('opportunity_gaps') != 'Not found in available content' %}
-                        <div class="market-block">
-                            <div class="market-block-label">Opportunity Gaps</div>
-                            <div class="market-block-value">{{ market.get('opportunity_gaps') }}</div>
-                        </div>
-                        {% endif %}
-                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
 
-                <!-- Objection Preparation (Expandable) -->
-                {% if objections %}
-                <div class="expandable-section">
-                    <div class="expandable-header" onclick="toggleSection(this)">
-                        <div class="section-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-rose);">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                            </svg>
-                            Objection Preparation
-                        </div>
-                        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <!-- TAB 2: Intelligence -->
+                <div class="lead-tab-content" id="intel-{{ lid }}">
+
+                    <!-- Deep Enrichment -->
+                    {% if enriched and (enriched.get('tech_stack') or enriched.get('employee_estimate', 'Unknown') != 'Unknown') %}
+                    <div class="section-title" style="margin-bottom:0.8rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-sky);width:16px;height:16px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        Deep Enrichment
                     </div>
-                    <div class="expandable-content">
-                        {% for obj in objections %}
-                        <div class="objection-card">
-                            <div class="objection-label prospect">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                                </svg>
-                                Prospect Objection
-                            </div>
-                            <div class="objection-text">"{{ obj.get('objection', '') }}"</div>
-                            <div class="objection-label counter mt-1">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">
-                                    <polyline points="22 4 12 14.01 9 11.01"/>
-                                </svg>
-                                Counter-Response
-                            </div>
-                            <div class="objection-text">{{ obj.get('counter', '') }}</div>
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.6rem;margin-bottom:1rem;">
+                        {% for label, val in [('Employees', enriched.get('employee_estimate','Unknown')), ('Revenue', enriched.get('revenue_estimate','Unknown')), ('Founded', enriched.get('founded_year','Unknown')), ('HQ', enriched.get('headquarters','Unknown'))] %}
+                        {% if val and val != 'Unknown' %}
+                        <div class="info-block">
+                            <div class="info-block-label">{{ label }}</div>
+                            <div class="info-block-value" style="font-weight:600;">{{ val }}</div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    {% if enriched.get('tech_stack') %}
+                    <div style="margin-bottom:0.8rem;">
+                        <div class="info-block-label" style="margin-bottom:0.4rem;">Tech Stack</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
+                            {% for tech in enriched.get('tech_stack', []) %}
+                            {% set t = tech if tech is mapping else {'name': tech} %}
+                            <span class="service-tag">{{ t.get('name', tech) }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% set contacts = enriched.get('decision_makers', []) %}
+                    {% if contacts %}
+                    <div style="margin-bottom:0.8rem;">
+                        <div class="info-block-label" style="margin-bottom:0.4rem;">Key Contacts</div>
+                        {% for dm in contacts %}
+                        {% set d = dm if dm is mapping else {} %}
+                        <div style="padding:0.3rem 0;border-bottom:1px solid var(--border-light);font-size:0.85rem;color:var(--text-secondary);">
+                            <strong>{{ d.get('name', 'N/A') }}</strong>{% if d.get('title') %} — {{ d.get('title') }}{% endif %}
                         </div>
                         {% endfor %}
                     </div>
-                </div>
-                {% endif %}
+                    {% endif %}
+                    {% endif %}
 
-                <!-- Outreach Email (Expandable) -->
-                {% if email and email.get('body') %}
-                <div class="expandable-section">
-                    <div class="expandable-header" onclick="toggleSection(this)">
-                        <div class="section-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-sky);">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
-                            </svg>
-                            Outreach Email Draft
-                        </div>
-                        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    <!-- Agent Insights -->
+                    {% if insights %}
+                    <div class="section-title" style="margin-top:1rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-purple);width:16px;height:16px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        Multi-Agent Insights
+                        <span class="badge badge-qualified" style="margin-left:0.3rem;">{{ agents_data.get('agents_run', [])|length }} agents</span>
                     </div>
-                    <div class="expandable-content">
-                        <div class="email-preview">
-                            <div class="email-subject">
-                                <span>Subject:</span> {{ email.get('subject', 'No subject') }}
+
+                    {% set pain = insights.get('PainPointAgent', {}) %}
+                    {% if pain.get('pain_points') %}
+                    <div style="margin-bottom:1rem;">
+                        <div class="info-block-label" style="margin-bottom:0.4rem;">Pain Points</div>
+                        {% for pp in pain.get('pain_points', []) %}
+                        <div style="padding:0.4rem 0;border-bottom:1px solid var(--border-light);font-size:0.85rem;color:var(--text-secondary);">
+                            <strong>{{ pp.get('pain', '') }}</strong>
+                            <span style="font-size:0.7rem;padding:2px 6px;background:{% if pp.get('urgency', 0) >= 7 %}var(--accent-rose-glow){% else %}var(--bg-muted){% endif %};color:{% if pp.get('urgency', 0) >= 7 %}var(--accent-rose){% else %}var(--text-muted){% endif %};border-radius:100px;margin-left:0.3rem;">{{ pp.get('urgency', '?') }}/10</span>
+                            {% if pp.get('our_solution') %}
+                            <div style="font-size:0.78rem;color:var(--accent-emerald);margin-top:0.2rem;">💡 {{ pp.get('our_solution') }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% set pers = insights.get('PersonalizationAgent', {}) %}
+                    {% if pers.get('personalization_hooks') %}
+                    <div style="margin-bottom:1rem;">
+                        <div class="info-block-label" style="margin-bottom:0.4rem;">Personalization Hooks</div>
+                        {% for hook in pers.get('personalization_hooks', []) %}
+                        <div style="font-size:0.85rem;color:var(--text-secondary);padding:0.2rem 0;">• {{ hook }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% set comp = insights.get('CompetitiveAgent', {}) %}
+                    {% if comp.get('market_position') or comp.get('differentiation_angle') %}
+                    <div>
+                        <div class="info-block-label" style="margin-bottom:0.4rem;">Competitive Intel</div>
+                        {% if comp.get('market_position') %}
+                        <div style="font-size:0.85rem;color:var(--text-secondary);">Position: <strong>{{ comp.get('market_position') }}</strong></div>
+                        {% endif %}
+                        {% if comp.get('differentiation_angle') %}
+                        <div style="font-size:0.85rem;color:var(--text-primary);margin-top:0.2rem;font-weight:500;">🎯 {{ comp.get('differentiation_angle') }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+
+                    <!-- Objection Prep -->
+                    {% if objections and objections.get('objections') %}
+                    <div class="expandable-section" style="margin-top:1rem;">
+                        <div class="expandable-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-rose);width:16px;height:16px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                Objection Preparation
                             </div>
-                            <div class="email-body">{{ email.get('body', '') }}</div>
+                            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                        <div class="expandable-content">
+                            {% for obj in objections.get('objections', []) %}
+                            <div class="objection-card">
+                                <div class="objection-label objection">Objection</div>
+                                <div class="objection-text">{{ obj.get('objection', '') }}</div>
+                                <div class="objection-label counter" style="margin-top:0.4rem;">Counter-Response</div>
+                                <div class="objection-text">{{ obj.get('counter', '') }}</div>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
+                    {% endif %}
                 </div>
-                {% endif %}
 
-                {% endif %}
+                <!-- TAB 3: Actions -->
+                <div class="lead-tab-content" id="actions-{{ lid }}">
+
+                    <!-- Email -->
+                    {% if email and email.get('body') %}
+                    <div class="section-title" style="margin-bottom:0.5rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-blue);width:16px;height:16px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        Outreach Email Draft
+                    </div>
+                    <div class="email-content">
+                        <div class="email-subject">Subject: {{ email.get('subject', '') }}</div>
+                        <div class="email-body" id="email-body-{{ lid }}" style="white-space:pre-wrap;">{{ email.get('body', '') }}</div>
+                    </div>
+                    <div class="email-actions">
+                        {% if lead.get('gmail_compose_url') %}
+                        <a href="{{ lead.get('gmail_compose_url') }}" target="_blank" class="btn-gmail">Draft in Gmail</a>
+                        {% endif %}
+                        {% if lead.get('mailto_link') %}
+                        <a href="{{ lead.get('mailto_link') }}" class="btn-gmail">Open in Mail App</a>
+                        {% endif %}
+                        <button class="btn-copy" onclick="copyEmailBody('{{ lid }}')">📋 Copy Body</button>
+                    </div>
+                    {% endif %}
+
+                    <!-- Live Call Whisperer -->
+                    <div class="expandable-section" style="margin-top:1rem;">
+                        <div class="expandable-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-rose);width:16px;height:16px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+                                Live Call Whisperer
+                            </div>
+                            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                        <div class="expandable-content">
+                            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.5rem;">On a live call? Type the objection and get an instant counter.</p>
+                            {% if objections and objections.get('objections') %}
+                            <div class="info-block-label" style="margin-bottom:0.3rem;">Quick Battlecards:</div>
+                            <div class="battlecard-chips">
+                                {% for obj in objections.get('objections', []) %}
+                                <div class="battlecard-chip" onclick="document.getElementById('whisper-input-{{ lid }}').value=this.textContent;sendWhisper('{{ lid }}')">{{ obj.get('objection', '')[:60] }}{% if obj.get('objection', '')|length > 60 %}…{% endif %}</div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="whisperer-input-area">
+                                <textarea placeholder="Type the exact objection you just heard on the call..."
+                                          id="whisper-input-{{ lid }}" class="whisperer-textarea" rows="2"
+                                          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendWhisper('{{ lid }}')}"></textarea>
+                                <button onclick="sendWhisper('{{ lid }}')" class="btn-whisperer">⚡ Counter</button>
+                            </div>
+                            <div class="whisperer-history" id="whisper-result-{{ lid }}"></div>
+                        </div>
+                    </div>
+
+                    <!-- Call Practice Coach -->
+                    <div class="expandable-section" style="margin-top:0.8rem;">
+                        <div class="expandable-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-emerald);width:16px;height:16px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/></svg>
+                                Call Practice Coach
+                            </div>
+                            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                        <div class="expandable-content">
+                            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.5rem;">Practice your call with an AI buyer. Supports English and Hindi.</p>
+                            <div class="lang-toggle" id="lang-toggle-{{ lid }}">
+                                <button class="active" onclick="setCallLang('{{ lid }}','english',this)">English</button>
+                                <button onclick="setCallLang('{{ lid }}','hindi',this)">Hindi</button>
+                            </div>
+                            <div class="call-conversation" id="call-conv-{{ lid }}"></div>
+                            <div class="whisperer-input-area">
+                                <textarea placeholder="Type what you'd say on the call..."
+                                          id="call-input-{{ lid }}" class="whisperer-textarea" rows="2"
+                                          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCallMessage('{{ lid }}')}"></textarea>
+                                <button onclick="sendCallMessage('{{ lid }}')" class="btn-whisperer" style="background:var(--gradient-success);">📞 Send</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LinkedIn -->
+                    {% set social = enriched.get('social_links', {}) if enriched else {} %}
+                    {% if social.get('linkedin') %}
+                    <a href="{{ social.get('linkedin') }}" target="_blank" class="btn-secondary" style="margin-top:0.8rem;display:inline-flex;text-decoration:none;">
+                        🔗 Connect on LinkedIn
+                    </a>
+                    {% endif %}
+                </div>
             </div>
 
+            {% elif lead.get('status') == 'error' %}
+            <div class="lead-card animate-in" style="border-color:rgba(244,63,94,0.2);animation-delay:{{ loop.index0 * 0.1 }}s;">
+                <div class="lead-card-header">
+                    <div>
+                        <h3>{{ lead.get('company_name', lead.get('query', 'Unknown')) }}</h3>
+                        <span style="font-size:0.82rem;color:var(--accent-rose);">{{ lead.get('error_detail', 'Processing failed') }}</span>
+                    </div>
+                    <span class="badge badge-not-qualified">Error</span>
+                </div>
+            </div>
+            {% endif %}
+
         {% endfor %}
-
         </div>
-
     </div>
 
-    <footer class="footer">
+    <footer>
         <div class="container">
             <div class="footer-content">
-                <span>Sales Intelligence Automator</span>
-                <span>Powered by Groq + LLaMA 3.1</span>
+                <span>Sales Navigator Automator</span>
+                <span>Powered by Groq + LLaMA 3.3</span>
             </div>
         </div>
     </footer>
+</div>
 
+<!-- Floating Chatbot FAB -->
+<button class="chat-fab" id="chat-fab" onclick="toggleChatPanel()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+</button>
+
+<!-- Floating Chat Panel -->
+<div class="chat-panel" id="chat-panel">
+    <div class="chat-panel-header">
+        <div>
+            <h4 id="chat-lead-name">💬 Select a lead...</h4>
+            <div class="lead-indicator" id="chat-lead-indicator">Scroll to a lead to start chatting</div>
+        </div>
+    </div>
+    <div class="chat-panel-messages" id="chat-messages"></div>
+    <div class="chat-panel-suggestions" id="chat-suggestions">
+        <button class="rag-suggest-btn" onclick="askChatQuestion('What services should I pitch?')">What to pitch?</button>
+        <button class="rag-suggest-btn" onclick="askChatQuestion('What pain points does this company have?')">Pain points?</button>
+        <button class="rag-suggest-btn" onclick="askChatQuestion('Write me a 30-second elevator pitch')">Elevator pitch</button>
+    </div>
+    <div class="chat-panel-input">
+        <input type="text" placeholder="Ask about this lead..." id="chat-input"
+               onkeydown="if(event.key==='Enter'){sendChatMessage()}">
+        <button onclick="sendChatMessage()">Send</button>
+    </div>
 </div>
 
 <script>
-function toggleSection(header) {
-    header.classList.toggle('active');
-    const content = header.nextElementSibling;
-    content.classList.toggle('show');
+// ─── Tab Switching ───
+function switchTab(tabEl, contentId) {
+    const card = tabEl.closest('.lead-card');
+    card.querySelectorAll('.lead-tab').forEach(t => t.classList.remove('active'));
+    card.querySelectorAll('.lead-tab-content').forEach(c => c.classList.remove('active'));
+    tabEl.classList.add('active');
+    document.getElementById(contentId).classList.add('active');
 }
 
-function filterLeads(type) {
-    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+// ─── Expandable Sections ───
+function toggleSection(header) {
+    const section = header.closest('.expandable-section');
+    section.classList.toggle('open');
+}
 
-    document.querySelectorAll('.lead-card').forEach(card => {
-        const b2b = card.dataset.b2b;
-        const status = card.dataset.status;
-        const fit = card.dataset.fit;
+// ─── Copy Email ───
+function copyEmailBody(leadId) {
+    const el = document.getElementById('email-body-' + leadId);
+    if (el) {
+        navigator.clipboard.writeText(el.textContent);
+        showToast('Email body copied!');
+    }
+}
 
-        if (type === 'all') {
-            card.style.display = '';
-        } else if (type === 'b2b-yes') {
-            card.style.display = (b2b === 'yes' && status === 'completed') ? '' : 'none';
-        } else if (type === 'b2b-no') {
-            card.style.display = (b2b === 'no' && status === 'completed') ? '' : 'none';
-        } else if (type === 'not-fit') {
-            card.style.display = (fit === 'no' && status === 'completed') ? '' : 'none';
-        } else if (type === 'error') {
-            card.style.display = (status === 'error') ? '' : 'none';
+function showToast(message) {
+    let toast = document.getElementById('copy-toast-global');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'copy-toast-global';
+        toast.className = 'copy-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ─── Whisperer WebSocket ───
+const _whisperSockets = {};
+
+function sendWhisper(leadId) {
+    const input = document.getElementById('whisper-input-' + leadId);
+    const objection = input ? input.value.trim() : '';
+    if (!objection) return;
+
+    const resultDiv = document.getElementById('whisper-result-' + leadId);
+
+    // Add typing indicator
+    const typingHtml = '<div class="whisperer-result" id="whisper-typing-' + leadId + '"><div class="whisperer-say-block"><div class="typing-indicator"><span></span><span></span><span></span></div></div></div>';
+    resultDiv.insertAdjacentHTML('beforeend', typingHtml);
+    resultDiv.scrollTop = resultDiv.scrollHeight;
+
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    if (!_whisperSockets[leadId] || _whisperSockets[leadId].readyState > 1) {
+        _whisperSockets[leadId] = new WebSocket(`${protocol}//${location.host}/ws/whisperer/${leadId}`);
+    }
+    const ws = _whisperSockets[leadId];
+
+    const send = () => ws.send(JSON.stringify({ objection }));
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // Remove typing indicator
+        const typingEl = document.getElementById('whisper-typing-' + leadId);
+        if (typingEl) typingEl.remove();
+
+        // Build premium coaching card
+        let html = '<div class="whisperer-result">';
+
+        // User's objection as context
+        html += `<div style="padding:0.5rem 0.8rem;font-size:0.78rem;color:var(--text-muted);background:var(--bg-secondary);border:1px solid var(--border-light);border-radius:var(--radius-md) var(--radius-md) 0 0;border-bottom:none;">🎤 <em>"${escapeHtmlText(objection)}"</em></div>`;
+
+        // SAY THIS block
+        html += '<div class="whisperer-say-block" style="border-radius:0;">';
+        html += '<div class="whisperer-result-label" style="color:var(--accent-emerald);"><span class="label-icon">💬</span> SAY THIS</div>';
+        html += `<div class="whisperer-result-text">${data.counter || ''}</div>`;
+        html += '</div>';
+
+        // THEN ASK block (if probe exists)
+        if (data.probe) {
+            html += '<div class="whisperer-probe-block">';
+            html += '<div class="whisperer-result-label" style="color:var(--accent-amber);"><span class="label-icon">❓</span> THEN ASK</div>';
+            html += `<div class="whisperer-result-text">${data.probe}</div>`;
+            html += '</div>';
         }
+
+        // Meta bar
+        html += '<div class="whisperer-meta">';
+        html += `<div class="whisperer-timing">⚡ ${data.response_time_ms}ms</div>`;
+        html += `<div class="whisperer-timestamp">${now}</div>`;
+        html += '</div></div>';
+
+        resultDiv.insertAdjacentHTML('beforeend', html);
+        resultDiv.scrollTop = resultDiv.scrollHeight;
+    };
+
+    if (ws.readyState === WebSocket.OPEN) send();
+    else ws.addEventListener('open', send, { once: true });
+
+    input.value = '';
+}
+
+function escapeHtmlText(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ─── Call Practice WebSocket ───
+const _callSockets = {};
+const _callLangs = {};
+
+function setCallLang(leadId, lang, btn) {
+    _callLangs[leadId] = lang;
+    const toggle = document.getElementById('lang-toggle-' + leadId);
+    toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function sendCallMessage(leadId) {
+    const input = document.getElementById('call-input-' + leadId);
+    const message = input ? input.value.trim() : '';
+    if (!message) return;
+
+    const conv = document.getElementById('call-conv-' + leadId);
+    const lang = _callLangs[leadId] || 'english';
+
+    // Add user bubble
+    addBubble(conv, message, 'call-user');
+    addBubble(conv, '', 'call-ai', 'typing-' + leadId, true);
+    input.value = '';
+
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (!_callSockets[leadId] || _callSockets[leadId].readyState > 1) {
+        _callSockets[leadId] = new WebSocket(`${protocol}//${location.host}/ws/call-practice/${leadId}`);
+    }
+    const ws = _callSockets[leadId];
+
+    const send = () => ws.send(JSON.stringify({ message, language: lang }));
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const typingEl = document.getElementById('typing-' + leadId);
+        if (typingEl) typingEl.remove();
+        addBubble(conv, data.response || '', 'call-ai');
+        if (data.suggestion) {
+            addBubble(conv, '💡 ' + data.suggestion, 'call-suggestion');
+        }
+    };
+
+    if (ws.readyState === WebSocket.OPEN) send();
+    else ws.addEventListener('open', send, { once: true });
+}
+
+function addBubble(container, text, className, id, isTyping) {
+    const bubble = document.createElement('div');
+    bubble.className = 'call-bubble ' + className;
+    if (id) bubble.id = id;
+    if (isTyping) {
+        bubble.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+    } else {
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        bubble.innerHTML = text + `<span class="bubble-time">${now}</span>`;
+    }
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+}
+
+// ─── Floating Chatbot ───
+let _chatWs = null;
+let _chatLeadId = null;
+let _chatOpen = false;
+let _chatLeadName = null;
+// Per-lead chat history storage: { leadId: [{ role, content, html }] }
+const _chatHistories = {};
+// Track if a response is currently pending
+let _chatPending = false;
+// Queue for lead switches while a response is pending
+let _pendingLeadSwitch = null;
+
+function toggleChatPanel() {
+    _chatOpen = !_chatOpen;
+    document.getElementById('chat-panel').classList.toggle('open', _chatOpen);
+    document.getElementById('chat-fab').classList.toggle('open', _chatOpen);
+}
+
+// Scroll-aware lead detection
+const _leadCards = [];
+const _observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+        if (entry.isIntersecting) {
+            const leadId = entry.target.dataset.leadId;
+            const companyName = entry.target.dataset.companyName;
+            if (leadId && leadId !== _chatLeadId) {
+                if (_chatPending) {
+                    // A response is still loading — queue the switch
+                    _pendingLeadSwitch = { leadId, companyName };
+                } else {
+                    switchChatLead(leadId, companyName);
+                }
+            }
+        }
+    }
+}, { threshold: 0.3 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.lead-card[data-lead-id]').forEach(card => {
+        _observer.observe(card);
     });
+});
+
+function switchChatLead(leadId, companyName) {
+    // Save current chat history before switching
+    if (_chatLeadId) {
+        _saveChatHistory(_chatLeadId);
+    }
+
+    const prevName = _chatLeadName;
+    _chatLeadId = leadId;
+    _chatLeadName = companyName || 'Unknown';
+    document.getElementById('chat-lead-name').textContent = '💬 ' + _chatLeadName;
+    document.getElementById('chat-lead-indicator').textContent = 'Chatting about this lead';
+
+    // Restore previous history for this lead, or start fresh with transition
+    const msgDiv = document.getElementById('chat-messages');
+    if (_chatHistories[leadId] && _chatHistories[leadId].length > 0) {
+        // Restore saved messages
+        msgDiv.innerHTML = '';
+        _chatHistories[leadId].forEach(entry => {
+            const bubble = document.createElement('div');
+            bubble.className = 'call-bubble ' + entry.className;
+            bubble.innerHTML = entry.html;
+            msgDiv.appendChild(bubble);
+        });
+        // Add transition message
+        _addSystemMessage(msgDiv, `Switched back to ${_chatLeadName}. You can continue your conversation.`);
+    } else {
+        // Fresh lead - show welcome
+        msgDiv.innerHTML = '';
+        if (prevName) {
+            _addSystemMessage(msgDiv, `Now you can ask questions about "${_chatLeadName}".`);
+        }
+    }
+    msgDiv.scrollTop = msgDiv.scrollHeight;
+
+    // Reconnect WebSocket
+    if (_chatWs) { try { _chatWs.close(); } catch(e){} }
+
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    _chatWs = new WebSocket(`${protocol}//${location.host}/ws/chat/${leadId}`);
+
+    _chatWs.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'init') return;
+
+        _chatPending = false;
+
+        const typingEl = document.getElementById('chat-typing');
+        if (typingEl) typingEl.remove();
+
+        if (data.error) {
+            addChatBubble(data.error, 'call-ai');
+        } else {
+            addChatBubble(data.response || '', 'call-ai');
+        }
+
+        if (data.suggested_questions) {
+            const sugDiv = document.getElementById('chat-suggestions');
+            sugDiv.innerHTML = data.suggested_questions.map(q =>
+                `<button class="rag-suggest-btn" onclick="askChatQuestion('${q.replace(/'/g, "\\'")}')">${q}</button>`
+            ).join('');
+        }
+
+        // Save updated history
+        _saveChatHistory(_chatLeadId);
+
+        // Process queued lead switch now that response is complete
+        if (_pendingLeadSwitch) {
+            const { leadId: nextId, companyName: nextName } = _pendingLeadSwitch;
+            _pendingLeadSwitch = null;
+            setTimeout(() => switchChatLead(nextId, nextName), 300);
+        }
+    };
+
+    _chatWs.onerror = () => {
+        _chatPending = false;
+        showToast('Chat connection failed');
+    };
+}
+
+function _addSystemMessage(container, text) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'text-align:center;font-size:0.75rem;color:var(--text-muted);padding:0.5rem;margin:0.3rem 0;';
+    msg.textContent = text;
+    container.appendChild(msg);
+}
+
+function _saveChatHistory(leadId) {
+    if (!leadId) return;
+    const msgDiv = document.getElementById('chat-messages');
+    const bubbles = msgDiv.querySelectorAll('.call-bubble, div[style*="text-align:center"]');
+    _chatHistories[leadId] = Array.from(bubbles).map(b => ({
+        className: b.className,
+        html: b.innerHTML,
+    }));
+}
+
+function askChatQuestion(q) {
+    document.getElementById('chat-input').value = q;
+    sendChatMessage();
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message || !_chatLeadId) return;
+
+    addChatBubble(message, 'call-user');
+    input.value = '';
+    _chatPending = true;
+
+    const msgDiv = document.getElementById('chat-messages');
+    const typing = document.createElement('div');
+    typing.id = 'chat-typing';
+    typing.className = 'call-bubble call-ai';
+    typing.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+    msgDiv.appendChild(typing);
+    msgDiv.scrollTop = msgDiv.scrollHeight;
+
+    if (_chatWs && _chatWs.readyState === WebSocket.OPEN) {
+        // Prepend company context so "this company" resolves correctly
+        const contextMessage = `[Context: The user is asking about ${_chatLeadName}] ${message}`;
+        _chatWs.send(JSON.stringify({ message: contextMessage }));
+    } else {
+        _chatPending = false;
+        showToast('Chat not connected. Scroll to a lead first.');
+    }
+}
+
+function addChatBubble(text, className) {
+    const msgDiv = document.getElementById('chat-messages');
+    const bubble = document.createElement('div');
+    bubble.className = 'call-bubble ' + className;
+    bubble.textContent = text;
+    msgDiv.appendChild(bubble);
+    msgDiv.scrollTop = msgDiv.scrollHeight;
 }
 </script>
 </body>

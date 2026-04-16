@@ -21,7 +21,7 @@ _client: AsyncIOMotorClient = None
 _db = None
 
 # In-memory fallback storage
-_memory_store = {"jobs": {}, "leads": {}}
+_memory_store = {"jobs": {}, "leads": {}, "icp_profiles": {}, "chat_sessions": {}}
 _use_memory = False
 
 
@@ -159,3 +159,112 @@ async def get_lead(lead_id: str) -> dict | None:
         return _memory_store["leads"].get(lead_id)
     else:
         return await _db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
+
+
+async def search_leads(query: str, limit: int = 5) -> list[dict]:
+    """
+    Search for completed leads by company name (case-insensitive substring match).
+    Used by the messaging agent to find leads from Telegram/WhatsApp.
+    """
+    query_lower = query.lower().strip()
+    if not query_lower:
+        return []
+
+    if _use_memory:
+        results = []
+        for lead in _memory_store["leads"].values():
+            if lead.get("status") != "completed":
+                continue
+            name = (lead.get("company_name") or "").lower()
+            if query_lower in name:
+                results.append(lead)
+            if len(results) >= limit:
+                break
+        return results
+    else:
+        import re
+        cursor = _db.leads.find(
+            {
+                "status": "completed",
+                "company_name": {"$regex": re.escape(query), "$options": "i"},
+            },
+            {"_id": 0},
+        ).limit(limit)
+        return await cursor.to_list(length=limit)
+
+
+# ---------------------
+# ICP Profile Operations
+# ---------------------
+
+async def save_icp_profile(profile_doc: dict) -> str:
+    """Save or update an ICP profile. Returns the profile_id."""
+    profile_id = profile_doc.get("profile_id", generate_id())
+    profile_doc["profile_id"] = profile_id
+
+    if _use_memory:
+        _memory_store["icp_profiles"][profile_id] = profile_doc
+    else:
+        await _db.icp_profiles.replace_one(
+            {"profile_id": profile_id},
+            profile_doc,
+            upsert=True,
+        )
+
+    return profile_id
+
+
+async def get_icp_profile(profile_id: str) -> dict | None:
+    """Get an ICP profile by ID."""
+    if _use_memory:
+        return _memory_store["icp_profiles"].get(profile_id)
+    else:
+        return await _db.icp_profiles.find_one({"profile_id": profile_id}, {"_id": 0})
+
+
+async def list_icp_profiles() -> list[dict]:
+    """List all saved ICP profiles."""
+    if _use_memory:
+        return list(_memory_store["icp_profiles"].values())
+    else:
+        cursor = _db.icp_profiles.find({}, {"_id": 0})
+        return await cursor.to_list(length=50)
+
+
+async def delete_icp_profile(profile_id: str) -> bool:
+    """Delete an ICP profile. Returns True if found."""
+    if _use_memory:
+        return _memory_store["icp_profiles"].pop(profile_id, None) is not None
+    else:
+        result = await _db.icp_profiles.delete_one({"profile_id": profile_id})
+        return result.deleted_count > 0
+
+
+# ---------------------
+# Chat Session Operations (Phase 4 — RAG)
+# ---------------------
+
+async def save_chat_message(lead_id: str, role: str, content: str):
+    """Append a chat message to a lead's conversation history."""
+    from datetime import datetime, timezone
+    msg = {"role": role, "content": content, "ts": datetime.now(timezone.utc).isoformat()}
+
+    if _use_memory:
+        if lead_id not in _memory_store["chat_sessions"]:
+            _memory_store["chat_sessions"][lead_id] = []
+        _memory_store["chat_sessions"][lead_id].append(msg)
+    else:
+        await _db.chat_sessions.update_one(
+            {"lead_id": lead_id},
+            {"$push": {"messages": msg}},
+            upsert=True,
+        )
+
+
+async def get_chat_history(lead_id: str) -> list[dict]:
+    """Get all chat messages for a lead."""
+    if _use_memory:
+        return list(_memory_store["chat_sessions"].get(lead_id, []))
+    else:
+        doc = await _db.chat_sessions.find_one({"lead_id": lead_id})
+        return doc.get("messages", []) if doc else []

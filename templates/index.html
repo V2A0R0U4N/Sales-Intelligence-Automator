@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales Intelligence Automator — Lead Research</title>
     <meta name="description" content="Automated lead research and sales brief generation for B2B sales teams">
-    <link rel="stylesheet" href="/static/style.css?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v=7">
 </head>
 <body>
 <div class="page-wrapper">
@@ -14,7 +14,7 @@
     <nav class="navbar">
         <div class="container">
             <a href="/" class="navbar-brand">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
                     <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
                     <polyline points="7.5 19.79 7.5 14.6 3 12"/>
@@ -24,7 +24,11 @@
                 </svg>
                 <span>Sales Intelligence</span>
             </a>
-            <span class="navbar-meta">Automated Lead Research</span>
+            <span class="navbar-meta">
+                <a href="/icp-builder" class="btn-secondary btn-sm" id="icp-builder-link" style="text-decoration:none;">
+                    🎯 ICP Builder
+                </a>
+            </span>
         </div>
     </nav>
 
@@ -70,11 +74,42 @@
             </div>
             {% endif %}
 
-            <!-- ============ STEP 1: Search Form ============ -->
-            <div id="step-search">
+            <!-- ============ STEP 1: ICP Profile Selector ============ -->
+            <div class="form-card" style="margin-bottom:1.5rem;" id="step-icp">
+                <h3 class="step-title">
+                    <span class="step-number">1</span>
+                    Provide Your Ideal Customer Profile (ICP)
+                </h3>
+                <p class="form-hint" style="margin-bottom: 1rem;">
+                    The AI needs to understand your business and target audience before searching for and scoring leads.
+                </p>
+                {% if icp_profiles %}
+                <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                    <label for="icp_profile_select" style="font-size:0.85rem;font-weight:600;color:var(--text-primary);white-space:nowrap;">
+                        🎯 Active ICP:
+                    </label>
+                    <select id="icp_profile_select" style="flex:1;padding:0.5rem 0.8rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font-body);font-size:0.85rem;background:var(--bg-primary);color:var(--text-primary);min-width:200px;">
+                        <option value="" disabled selected>-- Select an ICP Profile --</option>
+                        {% for p in icp_profiles %}
+                        <option value="{{ p.profile_id }}">{{ p.profile_name }} — {{ p.your_company_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <a href="/icp-builder" class="btn-secondary btn-sm" style="text-decoration:none;">+ New ICP</a>
+                </div>
+                {% else %}
+                <div style="padding: 1.5rem; background: var(--bg-secondary); border: 1px dashed var(--border); border-radius: var(--radius-md); text-align: center;">
+                    <p style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem;">You haven't created an ICP profile yet. You must create one before discovering leads.</p>
+                    <a href="/icp-builder" class="btn-primary" style="display: inline-flex; text-decoration: none;">Create Your First ICP</a>
+                </div>
+                <input type="hidden" id="icp_profile_select" value="" />
+                {% endif %}
+            </div>
+
+            <!-- ============ STEP 2: Search Form ============ -->
+            <div id="step-search" {% if not icp_profiles %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
                 <div class="form-card">
                     <h3 class="step-title">
-                        <span class="step-number">1</span>
+                        <span class="step-number">2</span>
                         Discover Companies by Region
                     </h3>
                     <div class="discover-form-row">
@@ -97,11 +132,11 @@
                             </select>
                         </div>
                     </div>
-                    <button type="button" class="btn-primary" id="discover-btn" onclick="startDiscovery()">
+                    <button type="button" class="btn-primary" id="discover-btn" onclick="startDiscovery()" style="margin-top:1.25rem;">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         Discover Top 5 Companies
                     </button>
-                    <p class="form-hint">
+                    <p class="form-hint" style="margin-top:0.75rem;">
                         We'll search for the top 5 real company websites in your selected region and industry.
                     </p>
                 </div>
@@ -162,13 +197,14 @@ Custom Software Company – London UK"></textarea>
                 <form action="/api/analyze" method="POST" id="analyze-form">
                     <input type="hidden" name="selected_companies" id="selected_companies_input" value="" />
                     <input type="hidden" name="leads_text" id="extra_leads_hidden" value="" />
-                    <button type="submit" class="btn-primary btn-analyze" id="analyze-btn">
+                    <input type="hidden" name="icp_profile_id" id="icp_profile_id_input" value="" />
+                    <button type="submit" class="btn-primary btn-analyze" id="analyze-btn" style="margin-top:1.25rem;">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                         Scrape & Analyze All Companies
                     </button>
                 </form>
 
-                <button type="button" class="btn-secondary btn-back" onclick="goBackToSearch()">
+                <button type="button" class="btn-secondary" onclick="goBackToSearch()" style="margin-top:1rem;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                     Search Again
                 </button>
@@ -198,6 +234,12 @@ Custom Software Company – London UK"></textarea>
     async function startDiscovery() {
         const region = document.getElementById('region_input').value.trim();
         const category = document.getElementById('category_select').value;
+        const icpSelect = document.getElementById('icp_profile_select');
+        
+        if (!icpSelect || !icpSelect.value) {
+            alert('Please create and select an ICP profile first.');
+            return;
+        }
 
         if (!region) {
             alert('Please enter a region.');
@@ -280,7 +322,7 @@ Custom Software Company – London UK"></textarea>
 
         list.innerHTML = discoveredCompanies.map((comp, i) => `
             <label class="discovered-item" id="comp-card-${i}" style="cursor: pointer;">
-                <input type="checkbox" ${selectedIndices.has(i) ? 'checked' : ''} onchange="toggleCompany(${i})" style="margin-top:3px; width:16px; height:16px; accent-color: var(--accent-lavender); cursor: pointer; flex-shrink: 0;" />
+                <input type="checkbox" ${selectedIndices.has(i) ? 'checked' : ''} onchange="toggleCompany(${i})" style="margin-top:3px; width:16px; height:16px; accent-color: var(--text-primary); cursor: pointer; flex-shrink: 0;" />
                 <div class="discovered-item-content">
                     <div class="discovered-item-name">${escapeHtml(comp.name)}</div>
                     <div class="discovered-item-url">${escapeHtml(comp.url)}</div>
@@ -368,6 +410,11 @@ Custom Software Company – London UK"></textarea>
 
     document.getElementById('analyze-form').addEventListener('submit', function() {
         syncFormFields();
+        // Phase 1: Pass selected ICP profile
+        const icpSelect = document.getElementById('icp_profile_select');
+        if (icpSelect) {
+            document.getElementById('icp_profile_id_input').value = icpSelect.value;
+        }
         const btn = document.getElementById('analyze-btn');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span> Processing...';

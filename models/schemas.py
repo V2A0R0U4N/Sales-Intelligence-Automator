@@ -66,11 +66,15 @@ class SalesBrief(BaseModel):
 # ---------------------
 
 class ICPMatch(BaseModel):
-    """ICP matching scores against Moksh verticals."""
+    """ICP matching scores against user-defined verticals (or legacy Moksh verticals)."""
+    # Legacy hardcoded Moksh fields — kept for backward compatibility
     mokshtech_score: int = Field(default=0, ge=0, le=100)
     mokshcad_score: int = Field(default=0, ge=0, le=100)
     mokshdigital_score: int = Field(default=0, ge=0, le=100)
     mokshsigns_score: int = Field(default=0, ge=0, le=100)
+    # NEW: Dynamic vertical scores — {vertical_name: score}
+    # Used when ICP is user-defined rather than hardcoded
+    vertical_scores: dict = Field(default_factory=dict)
     best_fit_vertical: str = "None"
     pitch_angle: str = "Not found in available content"
     recommended_services: list[str] = Field(default_factory=list)

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICP Builder — Sales Navigator Automator</title>
+    <meta name="description" content="Define your Ideal Customer Profile to discover and qualify B2B leads automatically.">
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v=7">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="app-wrapper">
+    <header class="header">
+        <div class="container">
+            <div class="header-inner">
+                <a href="/" class="logo" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: inherit; font-weight: 600;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    Sales Navigator
+                </a>
+                <nav class="header-nav">
+                    <a href="/" class="btn-secondary btn-sm">← Back to Dashboard</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="hero" style="padding-bottom:1rem;">
+            <h1>🎯 ICP Builder</h1>
+            <p class="hero-sub">Define your Ideal Customer Profile. The AI will use it to discover, score, and qualify leads automatically.</p>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="icp-steps-indicator" id="steps-indicator">
+            <div class="icp-step-dot active" data-step="1"><span>1</span> Your Company</div>
+            <div class="icp-step-dot" data-step="2"><span>2</span> Target Leads</div>
+            <div class="icp-step-dot" data-step="3"><span>3</span> Signals</div>
+            <div class="icp-step-dot" data-step="4"><span>4</span> Review</div>
+        </div>
+
+        <form id="icp-form" class="icp-form">
+
+            <!-- ═══ STEP 1: Your Company ═══ -->
+            <div class="icp-step" id="step-1">
+                <div class="step-title">
+                    <span class="step-number">1</span>
+                    Tell us about your company
+                </div>
+                <p class="step-subtitle">This helps the AI understand what you sell and craft the right scoring criteria.</p>
+
+                <div class="form-group">
+                    <label for="your_company_name">Company Name *</label>
+                    <input type="text" id="your_company_name" name="your_company_name" 
+                           placeholder="e.g. Moksh Group" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="your_company_description">What does your company do? *</label>
+                    <textarea id="your_company_description" name="your_company_description" rows="3"
+                              placeholder="e.g. We provide IT managed services, CAD outsourcing, digital marketing, and commercial signage for SMBs in the US and Canada." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="profile_name">Profile Name</label>
+                    <input type="text" id="profile_name" name="profile_name"
+                           placeholder="e.g. Mid-Market IT Services — US" value="My ICP">
+                </div>
+
+                <!-- Verticals / Service Lines -->
+                <div class="form-group">
+                    <label>Business Verticals / Service Lines</label>
+                    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.8rem;">
+                        Add each product or service line your company offers. The AI will score leads against each one.
+                    </p>
+                    <div id="verticals-container">
+                        <!-- Dynamic vertical rows added here -->
+                    </div>
+                    <button type="button" onclick="addVertical()" class="btn-secondary btn-sm" style="margin-top:0.5rem;">
+                        + Add Vertical
+                    </button>
+                </div>
+
+                <div class="icp-nav-buttons">
+                    <div></div>
+                    <button type="button" onclick="goToStep(2)" class="btn-primary">Next: Target Leads →</button>
+                </div>
+            </div>
+
+            <!-- ═══ STEP 2: Target Leads ═══ -->
+            <div class="icp-step" id="step-2" style="display:none;">
+                <div class="step-title">
+                    <span class="step-number">2</span>
+                    Who are your ideal customers?
+                </div>
+                <p class="step-subtitle">Define the characteristics of companies you want to sell to.</p>
+
+                <div class="form-group">
+                    <label for="target_industries">Target Industries</label>
+                    <input type="text" id="target_industries" name="target_industries"
+                           placeholder="IT Services, Construction, Healthcare, Retail (comma-separated)">
+                    <small>Comma-separated list of industries</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="target_geographies">Target Geographies</label>
+                    <input type="text" id="target_geographies" name="target_geographies"
+                           placeholder="United States, Canada, Gujarat (comma-separated)">
+                    <small>Countries, states, or cities</small>
+                </div>
+
+                <div class="discover-form-row">
+                    <div class="form-group">
+                        <label for="employee_count_min">Min Employees</label>
+                        <input type="number" id="employee_count_min" name="employee_count_min"
+                               placeholder="e.g. 10" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="employee_count_max">Max Employees</label>
+                        <input type="number" id="employee_count_max" name="employee_count_max"
+                               placeholder="e.g. 500" min="0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="competitors">Your Competitors</label>
+                    <input type="text" id="competitors" name="competitors"
+                           placeholder="Competitor A, Competitor B (comma-separated)">
+                    <small>We'll look for leads who might be using or unhappy with these</small>
+                </div>
+
+                <div class="icp-nav-buttons">
+                    <button type="button" onclick="goToStep(1)" class="btn-secondary">← Back</button>
+                    <button type="button" onclick="goToStep(3)" class="btn-primary">Next: Signals →</button>
+                </div>
+            </div>
+
+            <!-- ═══ STEP 3: Signals & Triggers ═══ -->
+            <div class="icp-step" id="step-3" style="display:none;">
+                <div class="step-title">
+                    <span class="step-number">3</span>
+                    Qualification Signals
+                </div>
+                <p class="step-subtitle">What clues tell you a company is a good fit?</p>
+
+                <div class="form-group">
+                    <label for="pain_point_keywords">Pain Point Keywords</label>
+                    <input type="text" id="pain_point_keywords" name="pain_point_keywords"
+                           placeholder="struggling with IT, needs CAD outsourcing, no online presence">
+                    <small>Keywords that indicate a lead has problems you can solve</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="tech_stack_signals">Tech Stack Signals</label>
+                    <input type="text" id="tech_stack_signals" name="tech_stack_signals"
+                           placeholder="ConnectWise, Datto, Revit, AutoCAD, WordPress">
+                    <small>Tools/software that suggest a lead is a match</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="trigger_events">Trigger Events</label>
+                    <input type="text" id="trigger_events" name="trigger_events"
+                           placeholder="recently funded, new office, hiring, expansion">
+                    <small>Events that create a buying opportunity</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="excluded_keywords">Disqualification Keywords</label>
+                    <input type="text" id="excluded_keywords" name="excluded_keywords"
+                           placeholder="government, B2C only, enterprise-only">
+                    <small>Leads mentioning these are filtered out</small>
+                </div>
+
+                <div class="icp-nav-buttons">
+                    <button type="button" onclick="goToStep(2)" class="btn-secondary">← Back</button>
+                    <button type="button" onclick="goToStep(4)" class="btn-primary">Next: Review →</button>
+                </div>
+            </div>
+
+            <!-- ═══ STEP 4: Review & Save ═══ -->
+            <div class="icp-step" id="step-4" style="display:none;">
+                <div class="step-title">
+                    <span class="step-number">4</span>
+                    Review & Save Your ICP
+                </div>
+
+                <div class="icp-review-card" id="review-card">
+                    <!-- Populated by JS -->
+                </div>
+
+                <div class="icp-nav-buttons">
+                    <button type="button" onclick="goToStep(3)" class="btn-secondary">← Back</button>
+                    <button type="button" onclick="saveICP()" class="btn-primary" id="save-btn">
+                        💾 Save ICP Profile
+                    </button>
+                </div>
+
+                <div id="save-result" style="display:none; margin-top:1rem;"></div>
+            </div>
+
+        </form>
+
+        <!-- Load Existing Profiles Section -->
+        <div class="icp-saved-profiles" id="saved-profiles-section" style="margin-top:2rem;">
+            <div class="section-title" style="margin-bottom:1rem;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                Saved ICP Profiles
+            </div>
+            <div id="profiles-list">
+                <p style="color:var(--text-muted);font-size:0.85rem;">Loading profiles...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <span>Sales Navigator Automator</span>
+                <span>Powered by Groq + LLaMA 3.3</span>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<script>
+// ─── Step Navigation ───
+let currentStep = 1;
+
+function goToStep(step) {
+    // Validate current step before advancing
+    if (step > currentStep && !validateStep(currentStep)) return;
+
+    document.querySelectorAll('.icp-step').forEach(el => el.style.display = 'none');
+    document.getElementById(`step-${step}`).style.display = 'block';
+
+    document.querySelectorAll('.icp-step-dot').forEach(dot => {
+        const dotStep = parseInt(dot.dataset.step);
+        dot.classList.toggle('active', dotStep === step);
+        dot.classList.toggle('completed', dotStep < step);
+    });
+
+    currentStep = step;
+
+    if (step === 4) populateReview();
+}
+
+function validateStep(step) {
+    if (step === 1) {
+        const name = document.getElementById('your_company_name').value.trim();
+        const desc = document.getElementById('your_company_description').value.trim();
+        if (!name || !desc) {
+            alert('Please fill in your company name and description.');
+            return false;
+        }
+    }
+    return true;
+}
+
+// ─── Verticals Management ───
+let verticalCount = 0;
+
+function addVertical(data = null) {
+    verticalCount++;
+    const idx = verticalCount;
+    const container = document.getElementById('verticals-container');
+    const div = document.createElement('div');
+    div.className = 'vertical-row';
+    div.id = `vertical-row-${idx}`;
+    div.innerHTML = `
+        <div class="vertical-header">
+            <strong>Vertical ${idx}</strong>
+            <button type="button" onclick="removeVertical(${idx})" class="btn-remove" title="Remove">×</button>
+        </div>
+        <div class="discover-form-row">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" name="v_name_${idx}" placeholder="e.g. IT Services"
+                       value="${data ? data.name : ''}">
+            </div>
+            <div class="form-group">
+                <label>Target Customers</label>
+                <input type="text" name="v_target_${idx}" placeholder="e.g. SMBs needing outsourced IT"
+                       value="${data ? data.target_customers : ''}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" name="v_desc_${idx}" placeholder="Brief description of what this vertical does"
+                   value="${data ? data.description : ''}">
+        </div>
+        <div class="form-group">
+            <label>Services (comma-separated)</label>
+            <input type="text" name="v_services_${idx}" placeholder="Help Desk, NOC, Cloud Migration"
+                   value="${data ? (data.services || []).join(', ') : ''}">
+        </div>
+    `;
+    container.appendChild(div);
+}
+
+function removeVertical(idx) {
+    const row = document.getElementById(`vertical-row-${idx}`);
+    if (row) row.remove();
+}
+
+// ─── Collect Form Data ───
+function collectFormData() {
+    const splitField = (id) => {
+        const val = document.getElementById(id)?.value?.trim() || '';
+        return val ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+    };
+
+    // Collect verticals
+    const verticals = [];
+    document.querySelectorAll('.vertical-row').forEach(row => {
+        const idx = row.id.split('-')[2];
+        const name = row.querySelector(`[name="v_name_${idx}"]`)?.value?.trim();
+        if (name) {
+            verticals.push({
+                name,
+                description: row.querySelector(`[name="v_desc_${idx}"]`)?.value?.trim() || '',
+                target_customers: row.querySelector(`[name="v_target_${idx}"]`)?.value?.trim() || '',
+                services: (row.querySelector(`[name="v_services_${idx}"]`)?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+                match_signals: [],
+            });
+        }
+    });
+
+    return {
+        profile_name: document.getElementById('profile_name').value.trim() || 'My ICP',
+        your_company_name: document.getElementById('your_company_name').value.trim(),
+        your_company_description: document.getElementById('your_company_description').value.trim(),
+        verticals,
+        target_industries: splitField('target_industries'),
+        target_geographies: splitField('target_geographies'),
+        employee_count_min: parseInt(document.getElementById('employee_count_min').value) || null,
+        employee_count_max: parseInt(document.getElementById('employee_count_max').value) || null,
+        competitors: splitField('competitors'),
+        pain_point_keywords: splitField('pain_point_keywords'),
+        tech_stack_signals: splitField('tech_stack_signals'),
+        trigger_events: splitField('trigger_events'),
+        excluded_keywords: splitField('excluded_keywords'),
+    };
+}
+
+// ─── Review Card ───
+function populateReview() {
+    const data = collectFormData();
+    const card = document.getElementById('review-card');
+    card.innerHTML = `
+        <div class="review-section">
+            <h4>${data.profile_name}</h4>
+            <p><strong>${data.your_company_name}</strong></p>
+            <p style="color:var(--text-secondary);font-size:0.88rem;">${data.your_company_description}</p>
+        </div>
+        <div class="review-section">
+            <h5>Verticals (${data.verticals.length})</h5>
+            ${data.verticals.map(v => `
+                <span class="service-tag">${v.name}</span>
+            `).join(' ')}
+        </div>
+        <div class="review-section">
+            <h5>Target</h5>
+            <p><strong>Industries:</strong> ${data.target_industries.join(', ') || 'Any'}</p>
+            <p><strong>Geographies:</strong> ${data.target_geographies.join(', ') || 'Any'}</p>
+            <p><strong>Company Size:</strong> ${data.employee_count_min || '?'} – ${data.employee_count_max || '?'} employees</p>
+        </div>
+        <div class="review-section">
+            <h5>Signals</h5>
+            <p><strong>Pain Points:</strong> ${data.pain_point_keywords.join(', ') || 'None set'}</p>
+            <p><strong>Tech Stack:</strong> ${data.tech_stack_signals.join(', ') || 'None set'}</p>
+            <p><strong>Triggers:</strong> ${data.trigger_events.join(', ') || 'None set'}</p>
+            <p><strong>Competitors:</strong> ${data.competitors.join(', ') || 'None set'}</p>
+        </div>
+        <div class="review-section">
+            <h5>Exclusions</h5>
+            <p>${data.excluded_keywords.join(', ') || 'None set'}</p>
+        </div>
+    `;
+}
+
+// ─── Save ICP ───
+async function saveICP() {
+    const data = collectFormData();
+    const btn = document.getElementById('save-btn');
+    const result = document.getElementById('save-result');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const resp = await fetch('/api/icp/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const json = await resp.json();
+
+        if (resp.ok) {
+            result.innerHTML = `
+                <div style="background:var(--accent-sage-light);padding:1rem;border-radius:var(--radius-sm);color:#4A7A5A;">
+                    ✓ ICP saved! Profile ID: <strong>${json.profile_id}</strong>
+                    <br><a href="/" style="color:#4A7A5A;font-weight:600;">← Go to Dashboard to start discovery</a>
+                </div>`;
+            result.style.display = 'block';
+            loadProfiles();  // Refresh the list
+        } else {
+            throw new Error(json.detail || 'Save failed');
+        }
+    } catch (e) {
+        result.innerHTML = `<div style="background:var(--accent-rose-light);padding:1rem;border-radius:var(--radius-sm);color:#8B4F45;">
+            ✗ Error: ${e.message}</div>`;
+        result.style.display = 'block';
+    }
+    btn.disabled = false;
+    btn.textContent = '💾 Save ICP Profile';
+}
+
+// ─── Load Saved Profiles ───
+async function loadProfiles() {
+    const list = document.getElementById('profiles-list');
+    try {
+        const resp = await fetch('/api/icp/list');
+        const profiles = await resp.json();
+
+        if (!profiles.length) {
+            list.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No saved profiles yet. Create one above!</p>';
+            return;
+        }
+
+        list.innerHTML = profiles.map(p => `
+            <div class="icp-profile-card">
+                <div>
+                    <strong>${p.profile_name}</strong>
+                    <span style="color:var(--text-muted);font-size:0.78rem;margin-left:0.5rem;">${p.your_company_name}</span>
+                </div>
+                <div style="display:flex;gap:0.4rem;align-items:center;">
+                    <span style="font-size:0.72rem;color:var(--text-muted);">
+                        ${(p.verticals || []).length} verticals · ${(p.target_industries || []).length} industries
+                    </span>
+                    <button onclick="loadProfile('${p.profile_id}')" class="btn-secondary btn-sm">Load</button>
+                    <button onclick="deleteProfile('${p.profile_id}')" class="btn-remove" title="Delete">×</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Could not load profiles.</p>';
+    }
+}
+
+async function loadProfile(profileId) {
+    try {
+        const resp = await fetch(`/api/icp/${profileId}`);
+        const p = await resp.json();
+
+        document.getElementById('profile_name').value = p.profile_name || '';
+        document.getElementById('your_company_name').value = p.your_company_name || '';
+        document.getElementById('your_company_description').value = p.your_company_description || '';
+        document.getElementById('target_industries').value = (p.target_industries || []).join(', ');
+        document.getElementById('target_geographies').value = (p.target_geographies || []).join(', ');
+        document.getElementById('employee_count_min').value = p.employee_count_min || '';
+        document.getElementById('employee_count_max').value = p.employee_count_max || '';
+        document.getElementById('competitors').value = (p.competitors || []).join(', ');
+        document.getElementById('pain_point_keywords').value = (p.pain_point_keywords || []).join(', ');
+        document.getElementById('tech_stack_signals').value = (p.tech_stack_signals || []).join(', ');
+        document.getElementById('trigger_events').value = (p.trigger_events || []).join(', ');
+        document.getElementById('excluded_keywords').value = (p.excluded_keywords || []).join(', ');
+
+        // Load verticals
+        document.getElementById('verticals-container').innerHTML = '';
+        verticalCount = 0;
+        (p.verticals || []).forEach(v => addVertical(v));
+
+        goToStep(1);
+        showCopyToast('✓ Profile loaded — edit and save as new or overwrite.');
+    } catch (e) {
+        alert('Failed to load profile.');
+    }
+}
+
+async function deleteProfile(profileId) {
+    if (!confirm('Delete this ICP profile?')) return;
+    try {
+        await fetch(`/api/icp/${profileId}`, { method: 'DELETE' });
+        loadProfiles();
+    } catch (e) {
+        alert('Failed to delete profile.');
+    }
+}
+
+function showCopyToast(message) {
+    let toast = document.getElementById('copy-toast-global');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'copy-toast-global';
+        toast.className = 'copy-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// ─── Init ───
+document.addEventListener('DOMContentLoaded', () => {
+    loadProfiles();
+    // Start with one empty vertical
+    addVertical();
+});
+</script>
+
+</body>
+</html>

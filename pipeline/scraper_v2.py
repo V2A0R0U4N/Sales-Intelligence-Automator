@@ -253,6 +253,13 @@ class Fetcher:
                 if pw_html:
                     return pw_html, "playwright"
 
+        # If blocked by anti-bot (403/401), retry with Playwright stealth
+        if error_code == "access_denied" and PLAYWRIGHT_AVAILABLE:
+            log.info(f"Access denied (403/401), retrying with Playwright stealth: {url}")
+            pw_html = self._via_playwright(url)
+            if pw_html and len(pw_html.strip()) > 500:
+                return pw_html, "playwright"
+
         if html:
             return html, "requests_minimal"
 

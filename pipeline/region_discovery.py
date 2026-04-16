@@ -36,18 +36,56 @@ CATEGORIES = {
 # (social media, job boards, etc. — but we DO allow directories on first pass
 #  so we can scrape their listings)
 ALWAYS_BLOCKED = {
+    # Social media
     "facebook.com", "instagram.com", "twitter.com", "x.com",
     "youtube.com", "pinterest.com", "reddit.com", "quora.com", "tiktok.com",
+    "linkedin.com",
+    # Search engines
     "google.com", "google.co.in", "google.co.uk", "maps.google.com",
+    "g.page", "goo.gl",
+    "duckduckgo.com", "bing.com", "yahoo.com", "ask.com",
+    # Job boards
     "monster.com", "shine.com", "naukri.com", "indeed.com", "glassdoor.com",
-    "glassdoor.co.in", "wikipedia.org", "medium.com",
+    "glassdoor.co.in", "jobrapido.com", "foundit.in", "apna.co",
+    "timesjobs.com", "freshersworld.com", "hirist.tech", "iimjobs.com",
+    "internshala.com", "trainings.internshala.com", "blog.internshala.com",
+    "employers.builtin.com", "builtin.com",
+    # News / media / encyclopedias
+    "wikipedia.org", "medium.com",
     "bloomberg.com", "reuters.com", "forbes.com", "inc.com",
     "entrepreneur.com", "businessinsider.com", "techcrunch.com",
-    "internshala.com", "trainings.internshala.com", "blog.internshala.com",
-    # Search engines & job boards that appear as results
-    "duckduckgo.com", "bing.com", "yahoo.com", "ask.com",
-    "jobrapido.com", "foundit.in", "apna.co", "linkedin.com",
-    "timesjobs.com", "freshersworld.com", "hirist.tech", "iimjobs.com",
+    # SEO / analytics / marketing tools (not companies to scrape)
+    "semrush.com", "ahrefs.com", "moz.com", "explodingtopics.com",
+    "similarweb.com", "hotjar.com",
+    # Government / regulatory
+    "sebi.gov.in", "rbi.org.in", "mca.gov.in", "gst.gov.in",
+    # Aggregators / lead-gen / review / survey subdomains
+    "easyleadz.com", "smartodr.in", "getlatka.com",
+    "beststartup.in", "startupindia.gov.in",
+    # Misc non-company
+    "saasworthy.com", "capterra.com", "trustpilot.com",
+    "f6s.com", "hotones.com",
+    # SaaS/tools that appear as company results
+    "calendly.com", "shopify.com", "hubspot.com", "zoho.com",
+    "peoplehum.com", "hris.peoplehum.com",
+    "slack.com", "notion.so", "canva.com",
+    # WhatsApp / messaging links
+    "wa.me", "t.me", "api.whatsapp.com",
+    # Training / course sites (not companies for B2B intelligence)
+    "digitalscholar.in", "udemy.com", "coursera.org", "simplilearn.com",
+    "investopedia.com",
+    # Ad platforms / tracking / affiliate
+    "googleadservices.com", "doubleclick.net", "googlesyndication.com",
+    "googleads.g.doubleclick.net", "adservice.google.com",
+    "ads.google.com", "ad.doubleclick.net",
+    "adsense.google.com", "pagead2.googlesyndication.com",
+    "clickserve.dartsearch.net", "clickfunnels.com",
+    "gclid.com", "tracker.com", "ad.atdmt.com",
+    "taboola.com", "outbrain.com", "mgid.com",
+    # Country/regional pages (not companies)
+    "worldbank.org", "cia.gov", "un.org", "imf.org",
+    "tradingeconomics.com", "statista.com", "worldometers.info",
+    "countryeconomy.com", "worlddata.info", "nationmaster.com",
 }
 
 # ─── Listing / directory domains we CAN scrape for company entries ───
@@ -79,7 +117,9 @@ LISTICLE_URL_PATTERNS = re.compile(
     r"(top-\d+|best-\d+|list-of|/blog/|/article/|/news/|/press/|/tag/|"
     r"/category/|/wiki/|/reviews/|/compare/|companies-in-|firms-in-|"
     r"top-companies|best-companies|leading-companies|/search\?|"
-    r"startups-in-|agencies-in-|/careers|/jobs)",
+    r"startups-in-|agencies-in-|/careers|/jobs|/join-?us|"
+    r"/contact-?us|/apply|/signup|/register|/hire|/ehire|"
+    r"/vacancies|/openings|/work-with-us|/join-our-team)",
     re.IGNORECASE,
 )
 
@@ -98,18 +138,120 @@ LISTICLE_TITLE_PATTERNS = re.compile(
 GENERIC_NAME_PATTERNS = re.compile(
     r"^(about us|contact us|home|homepage|welcome|official site|services|products|"
     r"read more|learn more|click here|visit website|portfolio|about|contact|"
-    r"get quote|login|register|signup|back|overview|locations?|careers?|jobs?|"
+    r"get quote|login|register|sign ?up|sign ?in|back|overview|locations?|careers?|jobs?|"
     r"our team|privacy policy|terms|conditions|status|tools|trending|news|blog|"
-    r"resources|events|press|media|support|help|faq|pricing)$",
+    r"resources|events|press|media|support|help|faq|pricing|agency|"
+    r"leave a review|get matched|site feedback|help center|table of contents|"
+    r"for employers|join pro|what is this\??|odr portal|google reviews|"
+    r"venture capital funds?|write a review|explore|subscribe|download|"
+    r"see all|view all|show more|load more|go to|next page|previous page|"
+    r"disclaimer|cookie policy|sitemap|rss feed|newsletter|log ?in|log ?out|"
+    # Regulatory bodies / government abbreviations
+    r"sebi|rbi|irdai|nabard|sidbi|niti aayog|ministry of|"
+    # Generic anchor text / CTA buttons
+    r"here|click|book a call|book a demo|schedule a call|get started|"
+    r"shopify partner|free trial|free demo|try free|start free|"
+    r"request a quote|request demo|talk to us|reach us|apply now|"
+    r"view details|read case study|see profile|visit site|open|"
+    # Generic single-word terms that are never company names
+    r"website|company|profile|overview|details|info|information|"
+    r"strategy|marketing strategy|digital marketing|service provider|"
+    r"digital marketing service provider|best digital marketing|"
+    r"course|training|certification|program|workshop|webinar|"
+    r"latest trends|rankings?|ratings?)$",
     re.IGNORECASE
+)
+
+# Patterns that indicate a listicle/article title being used as a company name
+LISTICLE_NAME_PATTERN = re.compile(
+    r"(^\d+\s+(top|best|leading|biggest|fastest|most|popular|emerging|growing)|"
+    r"^\d+\s+\w+\s+based\s+|"
+    r"^top\s+\d+|^best\s+\d+|^list\s+of|"
+    r"(companies|firms|agencies|startups|studios|clinics|hospitals|schools|"
+    r"colleges|institutes|factories|vendors|suppliers|providers|consultants|"
+    r"freelancers|professionals|experts|practitioners|dealers|distributors|"
+    r"manufacturers|retailers|shops|stores|platforms)\s+in\s+|"
+    r"based\s+(companies|firms|startups|agencies)$|"
+    r"company\s+rankings?|latest\s+trends\s+related)",
+    re.IGNORECASE
+)
+
+# Generic industry descriptors that are NOT company names — covers ALL categories
+GENERIC_DESCRIPTOR_PATTERN = re.compile(
+    # Finance / Accounting
+    r"^(chartered accountants?\s+firm|ca\s+firm|accounting\s+(services?|firm)|"
+    r"financial\s+(services?|advisor|consultant)|tax\s+(consultant|advisor)|"
+    # Technology / IT
+    r"it\s+company|software\s+(company|firm|development)|tech\s+company|"
+    r"app\s+development|web\s+development|cloud\s+services?|"
+    # Digital Marketing
+    r"marketing\s+agency|digital\s+(agency|marketing)|seo\s+(agency|company|services?)|"
+    r"advertising\s+(agency|firm)|social\s+media\s+(agency|company)|"
+    r"digital\s+marketing\s+(course|service\s+provider|company\s+rankings?)|"
+    # Healthcare
+    r"hospital|clinic|medical\s+(center|centre|services?)|diagnostic\s+(center|centre)|"
+    r"healthcare\s+(provider|services?)|dental\s+(clinic|care)|"
+    # Manufacturing
+    r"manufacturing\s+(company|unit|plant)|factory|industrial\s+(unit|services?)|"
+    # Consulting
+    r"consulting\s+firm|consultancy|management\s+consulting|"
+    # Education
+    r"training\s+(institute|center|centre)|coaching\s+(institute|center|centre)|"
+    r"education\s+(provider|institute|center)|"
+    # Design / Architecture
+    r"design\s+(studio|agency|firm)|architecture\s+firm|interior\s+design|"
+    # Retail
+    r"retail\s+(store|shop|outlet)|e-?commerce\s+(company|platform|store))"
+    r"\s+(in|at|near|for|based in)\s+",
+    re.IGNORECASE
+)
+
+# Location suffix to strip from otherwise valid names
+# Uses a broad pattern: catches any trailing "in/at/near [Capitalized Word(s)]" or ", [Place]"
+LOCATION_SUFFIX = re.compile(
+    r"\s*[,\-\u2013\u2014]?\s*"
+    r"(in|at|near|from|based in|located in|serving)\s+"
+    r"[A-Z][a-zA-Z]+(?:[\s,]+[A-Z][a-zA-Z]+)*\s*$"
+    r"|"
+    # Catch trailing ", City" or ", Country" patterns
+    r"\s*,\s*[A-Z][a-zA-Z]+(?:[\s,]+[A-Z][a-zA-Z]+)*\s*$",
+    re.UNICODE
 )
 
 EMAIL_PATTERN = re.compile(r"[\w.-]+@[\w.-]+\.\w+")
 PHONE_PATTERN = re.compile(r"^[\+\d\-\(\)\s]{8,20}$")
+GARBAGE_PATTERN = re.compile(r"[\+%]\d{2,}|\d{2,}\.\d+[BMK]|\d{5,}")
+
+# Country/region names that appear as fake "company" results from ads
+COUNTRY_NAMES = {
+    "india", "usa", "uk", "united states", "united kingdom", "canada", "australia",
+    "germany", "france", "japan", "china", "brazil", "singapore", "dubai",
+    "uae", "united arab emirates", "saudi arabia", "south africa", "nigeria",
+    "indonesia", "malaysia", "thailand", "vietnam", "philippines", "pakistan",
+    "bangladesh", "sri lanka", "nepal", "europe", "asia", "africa", "americas",
+    "north america", "south america", "middle east", "latin america",
+    "new zealand", "ireland", "scotland", "wales", "england",
+    "texas", "california", "new york", "florida", "london", "mumbai",
+    "delhi", "bangalore", "hyderabad", "chennai", "pune", "kolkata",
+    "ahmedabad", "surat", "jaipur", "lucknow", "gujarat", "maharashtra",
+    "karnataka", "tamil nadu", "telangana", "rajasthan", "uttar pradesh",
+}
+
+# Ad/tracking URL patterns
+AD_URL_PATTERNS = re.compile(
+    r"(gclid=|utm_source=.*ad|utm_medium=.*cpc|clickid=|"
+    r"/aclk\?|/pagead/|/adurl=|redirect.*ad|"
+    r"doubleclick|googleads|adservice|"
+    r"/sponsored/|/promo/|/ad/|/ads/|/advert/)",
+    re.IGNORECASE,
+)
 
 def _is_valid_company_name(name: str) -> bool:
     """True if name doesn't look like an email, phone number, or generic phrase."""
     if not name or len(name) < 2 or len(name) > 80:
+        return False
+    # Reject if name looks like a URL
+    if name.startswith(("http://", "https://", "www.")) or "://" in name:
         return False
     # Catch [email protected] or other bracketed email placeholders
     if "email protected" in name.lower() or "[email" in name.lower() or EMAIL_PATTERN.search(name):
@@ -118,7 +260,46 @@ def _is_valid_company_name(name: str) -> bool:
         return False
     if GENERIC_NAME_PATTERNS.match(name.strip()):
         return False
+    # Reject listicle titles used as names
+    if LISTICLE_NAME_PATTERN.search(name):
+        return False
+    # Reject pure generic descriptors like "CA Firm in Bangalore"
+    if GENERIC_DESCRIPTOR_PATTERN.match(name):
+        return False
+    # Reject garbage like "Lovable+1200%" or "google.com94.8B"
+    if GARBAGE_PATTERN.search(name):
+        return False
+    # Reject country/region names used as company names (from ads)
+    if name.strip().lower() in COUNTRY_NAMES:
+        return False
     return True
+
+
+def _is_ad_or_spam_result(url: str, title: str = "", snippet: str = "") -> bool:
+    """Detect ad/sponsored results, country pages, and tracking URLs."""
+    if not url:
+        return True
+    # Check for ad tracking parameters in URL
+    if AD_URL_PATTERNS.search(url):
+        return True
+    # Check for ad-related subdomains
+    domain = _domain_of(url)
+    ad_subdomains = ("ad.", "ads.", "adserver.", "track.", "click.", "go.", "redir.")
+    if domain.startswith(ad_subdomains):
+        return True
+    # Reject URLs that are just country subpages of a larger site
+    # e.g., somesite.com/in/ or somesite.com/us/ or somesite.com/countries/india
+    path = urlparse(url).path.lower().strip("/")
+    # Single 2-letter country code paths (e.g., /in, /us, /uk, /de)
+    if re.match(r'^[a-z]{2}$', path):
+        return True
+    # Country-specific subpages
+    if re.match(r'^(countries|regions|locations|offices)/', path):
+        return True
+    # Title is just a country/city name
+    if title and title.strip().lower() in COUNTRY_NAMES:
+        return True
+    return False
 
 def _domain_of(url: str) -> str:
     """Return bare domain (no www.) from a URL."""
@@ -156,7 +337,20 @@ def _is_direct_company_url(url: str, title: str = "") -> bool:
         return False
     
     # Reject obvious non-company subdomains
-    if domain.startswith(("status.", "tools.", "news.", "blog.", "docs.", "support.", "help.")):
+    non_company_prefixes = (
+        "status.", "tools.", "news.", "blog.", "docs.", "support.", "help.",
+        "account.", "accounts.", "login.", "auth.", "signin.",
+        "review.", "reviews.", "survey.", "feedback.",
+        "project.", "projects.", "platform.",
+        "analytics.", "stats.", "data.", "api.",
+        "employers.", "jobs.", "careers.",
+        "wiki.", "community.", "forum.", "forums.",
+        "cdn.", "static.", "assets.", "media.",
+        "mail.", "email.", "smtp.",
+        "admin.", "dashboard.", "app.",
+        "v.", "w.", "r.", "m.",
+    )
+    if domain.startswith(non_company_prefixes):
         return False
 
     full_path = urlparse(url).path.lower()
@@ -177,20 +371,56 @@ def _extract_name_from_url(url: str) -> str:
 
 
 def _clean_company_name(title: str, url: str) -> str:
-    if not title:
+    """Extract a clean company name from the page title, falling back to the domain."""
+    
+    # If no title, or title looks like a URL → extract from domain
+    if not title or title.startswith(("http://", "https://", "www.")) or "://" in title:
         candidate = _extract_name_from_url(url)
         return candidate if _is_valid_company_name(candidate) else "Unknown"
     
+    # Split on common title separators
     name = re.split(r"\s*[|–—\-:]\s*", title)[0].strip()
+    
+    # Remove trailing generic page-type words
     name = re.sub(
         r"\s*(Home|Official Site|Official Website|Welcome|Homepage|"
         r"Main|About|Contact|Services|Solutions|Products)\s*$",
         "", name, flags=re.IGNORECASE
     ).strip()
     
+    # Strip location suffixes like ", India" or "in Bangalore"
+    name = LOCATION_SUFFIX.sub("", name).strip().rstrip(",").rstrip("-").rstrip("–").strip()
+    
+    # Remove trailing date patterns like "· March 2026"
+    name = re.sub(r"\s*[·•]\s*\w+\s+\d{4}\s*$", "", name).strip()
+    
+    # Reject if the name is just a country/region/city name (from ad results)
+    if name.strip().lower() in COUNTRY_NAMES:
+        candidate = _extract_name_from_url(url)
+        return candidate if _is_valid_company_name(candidate) else "Unknown"
+    
+    # If after cleaning the name is invalid, fall back to domain-based name
     if not _is_valid_company_name(name):
         candidate = _extract_name_from_url(url)
         return candidate if _is_valid_company_name(candidate) else "Unknown"
+    
+    # Cross-check: if the name looks very different from the domain,
+    # prefer domain-based name for consistency (e.g. title="IT Solutions Provider" but domain="synarionit.com")
+    domain_name = _extract_name_from_url(url)
+    name_lower = name.lower().replace(" ", "")
+    domain_lower = domain_name.lower().replace(" ", "")
+    # If domain name is substring of title name or vice versa, title is fine
+    # Otherwise if name is too generic (< 3 words, no overlap with domain), use domain
+    if (
+        len(name.split()) <= 2
+        and domain_lower not in name_lower
+        and name_lower not in domain_lower
+        and _is_valid_company_name(domain_name)
+        and len(domain_name) > 3
+    ):
+        # Title doesn't match domain at all — likely a generic title
+        # Use domain-based name but keep title if it looks like a real company name
+        pass  # Keep the title-based name as it may still be correct
         
     return name
 
@@ -421,8 +651,13 @@ def discover_companies(
     companies: list[dict] = []
 
     def _add(name: str, url: str, snippet: str = "") -> bool:
-        """Add company if not already seen. Returns True if added."""
-        if not url:
+        """Add company if not already seen and passes quality checks."""
+        if not url or not name or name == "Unknown":
+            return False
+        # Ensure the URL is a valid direct company site
+        if not _is_direct_company_url(url):
+            return False
+        if not _is_valid_company_name(name):
             return False
         domain = _domain_of(url)
         if not domain or domain in seen_domains:
@@ -455,6 +690,11 @@ def discover_companies(
             if _is_always_blocked(url):
                 continue
 
+            # Filter out ad/sponsored/tracking results
+            if _is_ad_or_spam_result(url, title, snippet):
+                log.info(f"[Discovery] Skipping ad/spam: {url}")
+                continue
+
             if _is_direct_company_url(url, title):
                 # Direct company website — add as-is
                 name = _clean_company_name(title, url)
@@ -484,6 +724,14 @@ def discover_companies(
 
         if len(companies) < max_results:
             time.sleep(random.uniform(1.5, 2.5))
+
+    # Final quality pass: remove any entries that slipped through
+    companies = [
+        c for c in companies
+        if c["name"] != "Unknown"
+        and _is_valid_company_name(c["name"])
+        and _is_direct_company_url(c["url"])
+    ]
 
     log.info(f"[Discovery] Found {len(companies)} companies in {region} ({category_label})")
     return companies

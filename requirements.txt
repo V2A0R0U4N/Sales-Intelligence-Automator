@@ -14,3 +14,7 @@ beautifulsoup4>=4.12.3
 lxml>=5.2.2
 requests>=2.31.0
 readability-lxml>=0.8.1
+
+# Phase 7 — Google Sheets CRM (optional, install if using sheets sync)
+gspread>=6.0.0
+google-auth>=2.28.0
