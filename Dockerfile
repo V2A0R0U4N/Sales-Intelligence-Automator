@@ -11,14 +11,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# IMPORTANT FOR OPENSHIFT: 
-# OpenShift assigns arbitrary user IDs. We must ensure the app directory 
-# and Playwright paths are writable by the root group (which the arbitrary user will belong to).
+# IMPORTANT FOR OPENSHIFT / RAILWAY:
+# OpenShift assigns arbitrary user IDs. Railway uses dynamic ports.
+# We must ensure the app directory and Playwright paths are writable.
 RUN chgrp -R 0 /app && chmod -R g=u /app
 RUN chmod -R 777 /ms-playwright || true
 
-# Expose the FastAPI port
-EXPOSE 8000
+# Railway assigns PORT dynamically; default to 8000 for local dev
+ENV PORT=8000
+EXPOSE ${PORT}
 
-# Start the application using Uvicorn
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start the application using Uvicorn with dynamic port
+CMD python -m uvicorn main:app --host 0.0.0.0 --port ${PORT}

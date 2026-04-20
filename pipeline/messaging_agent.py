@@ -1,117 +1,95 @@
 """
-Unified Messaging Agent — WhatsApp & Telegram Integration
-==========================================================
-Routes incoming messages from WhatsApp Business Cloud API and
-Telegram Bot API to the Sales Intelligence pipeline (whisperer + RAG chat).
+WhatsApp Sales Intelligence Bot — Twilio Sandbox Integration
+=============================================================
+Routes incoming WhatsApp messages (via Twilio Sandbox) to the
+Sales Intelligence pipeline: lead search, objection whisperer, and RAG chat.
 
 Users text a lead name or objection → the agent looks up the lead,
-routes to the correct engine, and replies back via the same platform.
+routes to the correct engine, and replies back via WhatsApp.
 
 Configuration (env vars):
-  TELEGRAM_BOT_TOKEN        — from @BotFather
-  WHATSAPP_VERIFY_TOKEN     — your chosen webhook verification string
-  WHATSAPP_ACCESS_TOKEN     — Meta Graph API permanent token
-  WHATSAPP_PHONE_NUMBER_ID  — your WhatsApp Business phone number ID
+  TWILIO_ACCOUNT_SID       — from Twilio Console
+  TWILIO_AUTH_TOKEN         — from Twilio Console
+  TWILIO_WHATSAPP_NUMBER   — Twilio Sandbox number (e.g. whatsapp:+14155238886)
 """
 
 from __future__ import annotations
 
 import os
-import re
-import json
 import logging
-import httpx
 from typing import Optional
 
 log = logging.getLogger(__name__)
 
 # ── Env Config ────────────────────────────────────────────────────────
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-WHATSAPP_VERIFY = os.getenv("WHATSAPP_VERIFY_TOKEN", "salesintel_verify_2024")
-WHATSAPP_ACCESS = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
-WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+14155238886")
 
 # ── Session State (in-memory; production would use Redis) ─────────────
-# Maps platform_user_id → { "lead_id": str, "company_name": str, "mode": "chat"|"whisperer" }
+# Maps phone_number → { "lead_id": str, "company_name": str, "mode": "chat"|"whisperer" }
 _sessions: dict[str, dict] = {}
 
 
 # =====================================================================
-#  TELEGRAM BOT
+#  TWILIO WHATSAPP HANDLER
 # =====================================================================
 
-async def handle_telegram_update(update: dict, db_helpers: dict) -> Optional[dict]:
+async def handle_twilio_whatsapp(from_number: str, body: str, db_helpers: dict) -> dict:
     """
-    Process a single Telegram update (message).
-    
+    Process an incoming WhatsApp message via Twilio.
+
     Args:
-        update: Raw Telegram update JSON
-        db_helpers: Dict with keys 'get_leads_by_job', 'get_lead', 'search_leads'
+        from_number: Sender's WhatsApp number (e.g. "whatsapp:+919876543210")
+        body: The message text
+        db_helpers: Dict with keys 'get_lead', 'search_leads'
                     — async callables from the database module.
-    
+
     Returns:
-        Response dict for logging, or None.
+        Dict with 'reply' (text to send back) and 'status' for logging.
     """
-    message = update.get("message")
-    if not message:
-        return None
+    text = (body or "").strip()
+    user_id = from_number  # Use full Twilio number as session key
 
-    chat_id = str(message["chat"]["id"])
-    text = (message.get("text") or "").strip()
-    
     if not text:
-        return None
+        return {"reply": None, "status": "empty_message"}
 
-    log.info(f"[Telegram] From {chat_id}: {text[:80]}")
+    log.info(f"[WhatsApp] From {user_id}: {text[:80]}")
 
-    # ── Command handlers ──────────────────────────────────────────
-    if text.startswith("/start"):
+    # ── Command: help ─────────────────────────────────────────────
+    if text.lower() in ("help", "/help", "/start"):
         reply = (
-            "👋 Welcome to Sales Intelligence Bot!\n\n"
-            "I can help you during live sales calls.\n\n"
-            "Commands:\n"
-            "/search <company> — Find a lead by name\n"
-            "/whisperer — Switch to objection whisperer mode\n"
-            "/chat — Switch to lead Q&A chat mode\n"
-            "/status — Show your current active lead\n"
-            "/help — Show this help message\n\n"
-            "Start by searching for a lead: /search Acme Corp"
+            "🤖 *Sales Intelligence Bot*\n\n"
+            "• *search <company>* — Find a lead by name\n"
+            "• *whisperer* — Switch to objection counter mode\n"
+            "• *chat* — Switch to lead Q&A mode\n"
+            "• *status* — Show your current active lead\n"
+            "• *help* — Show this message\n\n"
+            "Start with: *search Acme Corp*"
         )
-        await _send_telegram(chat_id, reply)
-        return {"status": "welcome_sent"}
+        return {"reply": reply, "status": "help_sent"}
 
-    if text.startswith("/help"):
-        reply = (
-            "📖 *Commands:*\n"
-            "/search `<company>` — Find & select a lead\n"
-            "/whisperer — Objection counter mode (type what they said)\n"
-            "/chat — Ask AI about the lead\n"
-            "/status — Current lead info\n\n"
-            "_In whisperer mode, just type the objection you heard._\n"
-            "_In chat mode, ask any question about the lead._"
-        )
-        await _send_telegram(chat_id, reply, parse_mode="Markdown")
-        return {"status": "help_sent"}
-
-    if text.startswith("/search"):
+    # ── Command: search <company> ─────────────────────────────────
+    if text.lower().startswith("search "):
         query = text[7:].strip()
         if not query:
-            await _send_telegram(chat_id, "Usage: /search <company name>")
-            return {"status": "search_empty"}
+            return {"reply": "Usage: search <company name>", "status": "search_empty"}
 
         search_fn = db_helpers.get("search_leads")
         if not search_fn:
-            await _send_telegram(chat_id, "⚠️ Search not available in this deployment.")
-            return {"status": "search_unavailable"}
+            return {"reply": "⚠️ Search not available.", "status": "search_unavailable"}
 
         leads = await search_fn(query)
         if not leads:
-            await _send_telegram(chat_id, f"❌ No leads found matching \"{query}\".\nMake sure the lead has been analyzed on the web dashboard first.")
-            return {"status": "no_results"}
+            reply = (
+                f'❌ No leads found matching "{query}".\n'
+                f"Make sure the lead has been analyzed on the web dashboard first."
+            )
+            return {"reply": reply, "status": "no_results"}
 
         # Auto-select first match
         lead = leads[0]
-        _sessions[chat_id] = {
+        _sessions[user_id] = {
             "lead_id": lead.get("lead_id", ""),
             "company_name": lead.get("company_name", "Unknown"),
             "mode": "whisperer",
@@ -119,72 +97,59 @@ async def handle_telegram_update(update: dict, db_helpers: dict) -> Optional[dic
         }
 
         icp = lead.get("icp_match", {})
-        brief = lead.get("brief", {})
         reply = (
             f"✅ *Lead Selected:* {lead.get('company_name', 'Unknown')}\n"
             f"🌐 {lead.get('website', 'N/A')}\n"
             f"🎯 Best Fit: {icp.get('best_fit_vertical', 'N/A')}\n"
             f"📊 Verdict: {icp.get('fit_verdict', 'N/A')}\n\n"
             f"Mode: 🎤 *Whisperer* (type an objection to get a counter)\n"
-            f"Switch modes: /chat or /whisperer"
+            f"Send *chat* to switch to Q&A mode."
         )
-        await _send_telegram(chat_id, reply, parse_mode="Markdown")
-        return {"status": "lead_selected", "lead": lead.get("company_name")}
+        return {"reply": reply, "status": "lead_selected", "lead": lead.get("company_name")}
 
-    if text.startswith("/whisperer"):
-        session = _sessions.get(chat_id)
+    # ── Command: whisperer ────────────────────────────────────────
+    if text.lower() == "whisperer":
+        session = _sessions.get(user_id)
         if not session:
-            await _send_telegram(chat_id, "No lead selected. Use /search first.")
-            return {"status": "no_session"}
+            return {"reply": "No lead selected. Send *search <company>* first.", "status": "no_session"}
         session["mode"] = "whisperer"
-        await _send_telegram(chat_id, f"🎤 Whisperer mode for *{session['company_name']}*\nType the objection you just heard on the call.", parse_mode="Markdown")
-        return {"status": "mode_whisperer"}
+        reply = f"🎤 Whisperer mode for *{session['company_name']}*\nType the objection you just heard on the call."
+        return {"reply": reply, "status": "mode_whisperer"}
 
-    if text.startswith("/chat"):
-        session = _sessions.get(chat_id)
+    # ── Command: chat ─────────────────────────────────────────────
+    if text.lower() == "chat":
+        session = _sessions.get(user_id)
         if not session:
-            await _send_telegram(chat_id, "No lead selected. Use /search first.")
-            return {"status": "no_session"}
+            return {"reply": "No lead selected. Send *search <company>* first.", "status": "no_session"}
         session["mode"] = "chat"
         session["history"] = []
-        await _send_telegram(chat_id, f"💬 Chat mode for *{session['company_name']}*\nAsk anything about this lead.", parse_mode="Markdown")
-        return {"status": "mode_chat"}
+        reply = f"💬 Chat mode for *{session['company_name']}*\nAsk anything about this lead."
+        return {"reply": reply, "status": "mode_chat"}
 
-    if text.startswith("/status"):
-        session = _sessions.get(chat_id)
+    # ── Command: status ───────────────────────────────────────────
+    if text.lower() == "status":
+        session = _sessions.get(user_id)
         if not session:
-            await _send_telegram(chat_id, "No lead selected. Use /search <company> to start.")
-            return {"status": "no_session"}
+            return {"reply": "No lead selected. Send *search <company>* to start.", "status": "no_session"}
         mode_emoji = "🎤" if session["mode"] == "whisperer" else "💬"
-        await _send_telegram(
-            chat_id,
+        reply = (
             f"📋 *Active Lead:* {session['company_name']}\n"
             f"{mode_emoji} Mode: {session['mode'].title()}\n"
-            f"Lead ID: `{session['lead_id']}`",
-            parse_mode="Markdown",
+            f"Lead ID: {session['lead_id']}"
         )
-        return {"status": "status_sent"}
+        return {"reply": reply, "status": "status_sent"}
 
     # ── Free-text: route to whisperer or chat ─────────────────────
-    if text.startswith("/"):
-        await _send_telegram(chat_id, "Unknown command. Type /help for available commands.")
-        return {"status": "unknown_command"}
-
-    session = _sessions.get(chat_id)
+    session = _sessions.get(user_id)
     if not session:
-        await _send_telegram(chat_id, "👋 Welcome! Use /search <company name> to get started.")
-        return {"status": "no_session"}
+        reply = "👋 Welcome! Send *search <company name>* to get started, or *help* for commands."
+        return {"reply": reply, "status": "no_session"}
 
     get_lead = db_helpers.get("get_lead")
-    if not get_lead:
-        await _send_telegram(chat_id, "⚠️ Database not available.")
-        return {"status": "db_unavailable"}
-
-    lead_doc = await get_lead(session["lead_id"])
+    lead_doc = await get_lead(session["lead_id"]) if get_lead else None
     if not lead_doc:
-        await _send_telegram(chat_id, "⚠️ Lead not found. Try /search again.")
-        _sessions.pop(chat_id, None)
-        return {"status": "lead_missing"}
+        _sessions.pop(user_id, None)
+        return {"reply": "⚠️ Lead not found. Send *search <company>* again.", "status": "lead_missing"}
 
     if session["mode"] == "whisperer":
         # Route to objection whisperer
@@ -196,8 +161,7 @@ async def handle_telegram_update(update: dict, db_helpers: dict) -> Optional[dic
             reply += f"\n\n❓ *THEN ASK:*\n{result['probe']}"
         reply += f"\n\n⚡ {result.get('response_time_ms', 0)}ms"
 
-        await _send_telegram(chat_id, reply, parse_mode="Markdown")
-        return {"status": "whisperer_response", "time_ms": result.get("response_time_ms")}
+        return {"reply": reply, "status": "whisperer_response", "time_ms": result.get("response_time_ms")}
 
     else:
         # Route to RAG chat
@@ -211,225 +175,34 @@ async def handle_telegram_update(update: dict, db_helpers: dict) -> Optional[dic
         session["history"] = history[-10:]  # Keep last 10 messages
 
         reply = result.get("response", "Sorry, I couldn't process that.")
-        await _send_telegram(chat_id, reply)
-        return {"status": "chat_response", "time_ms": result.get("response_time_ms")}
+        return {"reply": reply, "status": "chat_response", "time_ms": result.get("response_time_ms")}
 
 
-async def _send_telegram(chat_id: str, text: str, parse_mode: str = None):
-    """Send a message via Telegram Bot API."""
-    if not TELEGRAM_TOKEN:
-        log.warning("[Telegram] No TELEGRAM_BOT_TOKEN set, skipping send.")
+async def send_twilio_whatsapp(to: str, text: str):
+    """Send a text message via Twilio WhatsApp API."""
+    if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
+        log.warning("[WhatsApp] No Twilio credentials set, skipping send.")
         return
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    import httpx
+
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
     payload = {
-        "chat_id": chat_id,
-        "text": text,
+        "From": TWILIO_WHATSAPP_NUMBER,
+        "To": to,
+        "Body": text,
     }
-    if parse_mode:
-        payload["parse_mode"] = parse_mode
 
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code != 200:
-                log.error(f"[Telegram] Send failed: {resp.status_code} {resp.text}")
-    except Exception as e:
-        log.error(f"[Telegram] Send error: {e}")
-
-
-async def setup_telegram_webhook(base_url: str) -> bool:
-    """
-    Register the webhook URL with Telegram.
-    Call this once after deploy with your public URL.
-    
-    Args:
-        base_url: e.g. "https://yourdomain.com"
-    
-    Returns:
-        True if successful
-    """
-    if not TELEGRAM_TOKEN:
-        log.warning("[Telegram] No token set, skipping webhook setup.")
-        return False
-
-    webhook_url = f"{base_url}/webhook/telegram"
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook"
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json={"url": webhook_url})
-            data = resp.json()
-            if data.get("ok"):
-                log.info(f"[Telegram] Webhook set to {webhook_url}")
-                return True
-            else:
-                log.error(f"[Telegram] Webhook setup failed: {data}")
-                return False
-    except Exception as e:
-        log.error(f"[Telegram] Webhook setup error: {e}")
-        return False
-
-
-# =====================================================================
-#  WHATSAPP BUSINESS CLOUD API
-# =====================================================================
-
-async def handle_whatsapp_message(body: dict, db_helpers: dict) -> Optional[dict]:
-    """
-    Process an incoming WhatsApp webhook event.
-    
-    Args:
-        body: Raw webhook JSON from Meta Graph API
-        db_helpers: Same as Telegram handler
-    
-    Returns:
-        Response dict for logging.
-    """
-    try:
-        entry = body.get("entry", [{}])[0]
-        changes = entry.get("changes", [{}])[0]
-        value = changes.get("value", {})
-        messages = value.get("messages", [])
-
-        if not messages:
-            return None  # Status update, not a message
-
-        msg = messages[0]
-        wa_id = msg.get("from", "")  # Sender's WhatsApp ID
-        text = (msg.get("text", {}).get("body", "") or "").strip()
-
-        if not text or not wa_id:
-            return None
-
-        log.info(f"[WhatsApp] From {wa_id}: {text[:80]}")
-
-        # Re-use the same session/routing logic as Telegram
-        session = _sessions.get(f"wa_{wa_id}")
-
-        if text.lower().startswith("search "):
-            query = text[7:].strip()
-            search_fn = db_helpers.get("search_leads")
-            if search_fn:
-                leads = await search_fn(query)
-                if leads:
-                    lead = leads[0]
-                    _sessions[f"wa_{wa_id}"] = {
-                        "lead_id": lead.get("lead_id", ""),
-                        "company_name": lead.get("company_name", "Unknown"),
-                        "mode": "whisperer",
-                        "history": [],
-                    }
-                    reply = (
-                        f"✅ Lead: {lead.get('company_name')}\n"
-                        f"🎯 {lead.get('icp_match', {}).get('best_fit_vertical', 'N/A')}\n\n"
-                        f"Mode: Whisperer 🎤\n"
-                        f"Type an objection to get a counter.\n"
-                        f"Send 'chat' to switch to Q&A mode."
-                    )
-                    await _send_whatsapp(wa_id, reply)
-                    return {"status": "lead_selected"}
-                else:
-                    await _send_whatsapp(wa_id, f"No leads found for \"{query}\". Analyze them on the web first.")
-                    return {"status": "no_results"}
-
-        elif text.lower() == "chat":
-            if session:
-                session["mode"] = "chat"
-                session["history"] = []
-                await _send_whatsapp(wa_id, f"💬 Chat mode for {session['company_name']}. Ask anything!")
-                return {"status": "mode_chat"}
-
-        elif text.lower() == "whisperer":
-            if session:
-                session["mode"] = "whisperer"
-                await _send_whatsapp(wa_id, f"🎤 Whisperer mode for {session['company_name']}. Type the objection.")
-                return {"status": "mode_whisperer"}
-
-        elif text.lower() == "help":
-            await _send_whatsapp(
-                wa_id,
-                "🤖 Sales Intelligence Bot\n\n"
-                "• search <company> — Find a lead\n"
-                "• whisperer — Objection counter mode\n"
-                "• chat — Lead Q&A mode\n"
-                "• help — Show this message\n\n"
-                "Start with: search Acme Corp"
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                url,
+                data=payload,
+                auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
             )
-            return {"status": "help_sent"}
-
-        # Free-text routing
-        if not session:
-            await _send_whatsapp(wa_id, "👋 Welcome! Send 'search <company name>' to get started, or 'help' for commands.")
-            return {"status": "no_session"}
-
-        get_lead = db_helpers.get("get_lead")
-        lead_doc = await get_lead(session["lead_id"]) if get_lead else None
-        if not lead_doc:
-            await _send_whatsapp(wa_id, "⚠️ Lead not found. Send 'search <company>' again.")
-            _sessions.pop(f"wa_{wa_id}", None)
-            return {"status": "lead_missing"}
-
-        if session["mode"] == "whisperer":
-            from pipeline.objection_whisperer import get_objection_counter
-            result = await get_objection_counter(text, lead_doc)
-            reply = f"💬 SAY THIS:\n{result.get('counter', '')}"
-            if result.get("probe"):
-                reply += f"\n\n❓ THEN ASK:\n{result['probe']}"
-            reply += f"\n\n⚡ {result.get('response_time_ms', 0)}ms"
-            await _send_whatsapp(wa_id, reply)
-            return {"status": "whisperer_response"}
-
-        else:
-            from pipeline.rag.chat_engine import rag_chat
-            history = session.get("history", [])
-            result = await rag_chat(text, lead_doc, history)
-            history.append({"role": "user", "content": text})
-            history.append({"role": "assistant", "content": result.get("response", "")})
-            session["history"] = history[-10:]
-            await _send_whatsapp(wa_id, result.get("response", "Sorry, couldn't process that."))
-            return {"status": "chat_response"}
-
+            if resp.status_code not in (200, 201):
+                log.error(f"[WhatsApp] Twilio send failed: {resp.status_code} {resp.text}")
+            else:
+                log.info(f"[WhatsApp] Message sent to {to}")
     except Exception as e:
-        log.error(f"[WhatsApp] Handler error: {e}", exc_info=True)
-        return {"status": "error", "detail": str(e)}
-
-
-def verify_whatsapp_webhook(mode: str, token: str, challenge: str) -> Optional[str]:
-    """
-    Handle the WhatsApp webhook verification (GET request).
-    
-    Returns the challenge string if valid, None otherwise.
-    """
-    if mode == "subscribe" and token == WHATSAPP_VERIFY:
-        log.info("[WhatsApp] Webhook verified successfully.")
-        return challenge
-    log.warning(f"[WhatsApp] Webhook verification failed: mode={mode}, token={token}")
-    return None
-
-
-async def _send_whatsapp(to: str, text: str):
-    """Send a text message via WhatsApp Business Cloud API."""
-    if not WHATSAPP_ACCESS or not WHATSAPP_PHONE_ID:
-        log.warning("[WhatsApp] No access token or phone ID set, skipping send.")
-        return
-
-    url = f"https://graph.facebook.com/v18.0/{WHATSAPP_PHONE_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_ACCESS}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to,
-        "type": "text",
-        "text": {"body": text},
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            if resp.status_code != 200:
-                log.error(f"[WhatsApp] Send failed: {resp.status_code} {resp.text}")
-    except Exception as e:
-        log.error(f"[WhatsApp] Send error: {e}")
+        log.error(f"[WhatsApp] Twilio send error: {e}")

@@ -37,8 +37,7 @@ from pipeline.enrichment import enrich_lead
 from pipeline.agents.orchestrator import AgentOrchestrator
 from pipeline.rag.chat_engine import rag_chat, get_initial_suggestions
 from pipeline.messaging_agent import (
-    handle_telegram_update, handle_whatsapp_message,
-    verify_whatsapp_webhook, setup_telegram_webhook,
+    handle_twilio_whatsapp, send_twilio_whatsapp,
 )
 from models.database import (
     save_icp_profile, get_icp_profile, list_icp_profiles, delete_icp_profile,
@@ -779,7 +778,7 @@ async def rag_chat_ws(websocket: WebSocket, lead_id: str):
 
 
 # ====================================================================
-# Phase 10 — WhatsApp & Telegram Webhook Routes
+# Phase 10 — WhatsApp Bot via Twilio Sandbox
 # ====================================================================
 
 # Database helper dict for the messaging agent
@@ -789,67 +788,41 @@ _msg_db_helpers = {
 }
 
 
-@app.post("/webhook/telegram")
-async def telegram_webhook(request: Request):
+@app.post("/webhook/twilio/whatsapp")
+async def twilio_whatsapp_webhook(
+    From: str = Form(""),
+    Body: str = Form(""),
+):
     """
-    Telegram Bot API webhook endpoint.
-    Receives updates from Telegram and routes them to the messaging agent.
-    """
-    try:
-        body = await request.json()
-        result = await handle_telegram_update(body, _msg_db_helpers)
-        return JSONResponse({"ok": True, "result": result})
-    except Exception as e:
-        print(f"[Telegram Webhook] Error: {e}")
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    Twilio WhatsApp Sandbox webhook endpoint.
+    Receives messages from Twilio (form-encoded) and routes them
+    to the Sales Intelligence messaging agent.
 
-
-@app.get("/webhook/whatsapp")
-async def whatsapp_verify(request: Request):
-    """
-    WhatsApp webhook verification (GET request).
-    Meta sends this during webhook setup to verify ownership.
-    """
-    mode = request.query_params.get("hub.mode", "")
-    token = request.query_params.get("hub.verify_token", "")
-    challenge = request.query_params.get("hub.challenge", "")
-
-    result = verify_whatsapp_webhook(mode, token, challenge)
-    if result is not None:
-        return HTMLResponse(content=result, status_code=200)
-    return JSONResponse({"error": "Verification failed"}, status_code=403)
-
-
-@app.post("/webhook/whatsapp")
-async def whatsapp_webhook(request: Request):
-    """
-    WhatsApp Business Cloud API webhook endpoint.
-    Receives messages and routes them to the messaging agent.
+    Twilio sends:
+      From = "whatsapp:+919876543210"
+      Body = "search Acme Corp"
     """
     try:
-        body = await request.json()
-        result = await handle_whatsapp_message(body, _msg_db_helpers)
-        return JSONResponse({"ok": True, "result": result})
+        if not From or not Body:
+            return HTMLResponse(content="", status_code=200)
+
+        # Process the message through the AI pipeline
+        result = await handle_twilio_whatsapp(From, Body, _msg_db_helpers)
+
+        # Send reply back via Twilio
+        reply_text = result.get("reply")
+        if reply_text:
+            await send_twilio_whatsapp(From, reply_text)
+
+        print(f"[Twilio WA] {From}: {Body[:60]} → {result.get('status')}")
+        return HTMLResponse(content="", status_code=200)
+
     except Exception as e:
-        print(f"[WhatsApp Webhook] Error: {e}")
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-
-@app.post("/api/telegram/setup")
-async def api_setup_telegram(request: Request):
-    """
-    One-time Telegram webhook setup.
-    POST body: {"base_url": "https://your-domain.com"}
-    """
-    data = await request.json()
-    base_url = data.get("base_url", "").rstrip("/")
-    if not base_url:
-        return JSONResponse({"error": "base_url is required"}, status_code=400)
-
-    success = await setup_telegram_webhook(base_url)
-    return JSONResponse({"ok": success})
+        print(f"[Twilio WA] Error: {e}")
+        return HTMLResponse(content="", status_code=200)
 
 
 # ====================================================================
 # Run with: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 # ====================================================================
+

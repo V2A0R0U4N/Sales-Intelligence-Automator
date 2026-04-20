@@ -4,7 +4,7 @@ ICP-Driven Smart Discovery Engine
 The "30 → 5" flow:
   1. User's CompanyICP profile → LLM generates 8 search queries
   2. DuckDuckGo executes searches → collects up to 30 unique companies
-  3. LLM scoring pass → ranks each against ICP, discards <70
+  3. LLM scoring pass → ranks each against ICP, discards <60
   4. Returns scored preview cards with "Why this lead?" snippets
 
 All free — uses DuckDuckGo (no API key) + Groq (free tier).
@@ -199,7 +199,7 @@ OUR COMPANY:
 - Target industries: {industries}
 
 Score these companies 0-100 on how well they match our ICP.
-70+ = good fit, 50-69 = maybe, <50 = poor fit.
+70+ = excellent fit, 60+ = good fit, 40-59 = maybe, <40 = poor fit.
 
 For each company, return:
 - score: 0-100
@@ -309,7 +309,7 @@ def _score_candidates(
 
     # Sort by score descending
     scored.sort(key=lambda x: x.icp_score, reverse=True)
-    log.info(f"[ICPDiscovery] Scored {len(scored)} candidates, {sum(1 for s in scored if s.icp_score >= 70)} qualify")
+    log.info(f"[ICPDiscovery] Scored {len(scored)} candidates, {sum(1 for s in scored if s.icp_score >= 60)} qualify")
     return scored
 
 

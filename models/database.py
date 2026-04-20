@@ -164,7 +164,7 @@ async def get_lead(lead_id: str) -> dict | None:
 async def search_leads(query: str, limit: int = 5) -> list[dict]:
     """
     Search for completed leads by company name (case-insensitive substring match).
-    Used by the messaging agent to find leads from Telegram/WhatsApp.
+    Used by the messaging agent to find leads from WhatsApp.
     """
     query_lower = query.lower().strip()
     if not query_lower:

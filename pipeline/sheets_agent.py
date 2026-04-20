@@ -1,7 +1,7 @@
 """
 Google Sheets CRM Sync Agent
 =============================
-Auto-syncs qualified leads (ICP score > 70 or is_good_fit) to a shared
+Auto-syncs qualified leads (ICP score > 60 or is_good_fit) to a shared
 Google Sheet — the team's free, zero-cost CRM.
 
 Setup (one-time, ~10 minutes):
@@ -124,7 +124,7 @@ def sync_lead_to_sheet(lead_doc: dict) -> bool:
     """
     Append a completed lead to the Google Sheet CRM.
 
-    Only syncs leads where ICP score > 70 or is_good_fit == True.
+    Only syncs leads where ICP score > 60 or is_good_fit == True.
 
     Args:
         lead_doc: Full lead document from the database.
@@ -152,7 +152,7 @@ def sync_lead_to_sheet(lead_doc: dict) -> bool:
         best_score = _get_best_icp_score(lead_doc)
 
         # Only sync qualified leads
-        if best_score < 70 and not icp.get("is_good_fit"):
+        if best_score < 60 and not icp.get("is_good_fit"):
             log.debug(
                 f"[SheetsAgent] Skipping {lead_doc.get('company_name')} "
                 f"(score={best_score}, is_good_fit={icp.get('is_good_fit')})"
