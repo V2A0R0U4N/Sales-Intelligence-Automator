@@ -21,5 +21,5 @@ RUN chmod -R 777 /ms-playwright || true
 ENV PORT=8000
 EXPOSE ${PORT}
 
-# Start the application using Uvicorn with dynamic port
-CMD python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+# Start the application
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
