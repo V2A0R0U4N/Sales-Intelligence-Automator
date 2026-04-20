@@ -17,6 +17,7 @@ from fastapi import FastAPI, Request, Form, BackgroundTasks, WebSocket, WebSocke
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from models.database import (
     connect_db, close_db, create_job, get_job, update_job,
@@ -66,6 +67,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Railway runs behind a reverse proxy — tell FastAPI to trust
+# forwarded headers so url_for() generates https:// URLs.
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
