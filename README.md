@@ -309,3 +309,4 @@ Every LLM response goes through a Pydantic model before touching the database. I
 ### Ad Filtering at the Source
 Rather than cleaning bad results after the fact, the discovery pipeline filters advertisements, tracking URLs, country placeholder pages, and directory listings **before** any scraping is attempted. This prevents wasted Playwright sessions and keeps the lead quality high.
 
+why 
