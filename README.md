@@ -1,6 +1,6 @@
 # 🧠 Sales Intelligence Automator
 
-An autonomous, multi-agent B2B sales intelligence platform that turns a list of company names or URLs into deep, actionable sales intelligence — fully enriched, ICP-matched, and delivered across your web dashboard, WhatsApp, and Telegram.
+An autonomous, multi-agent B2B sales intelligence platform that turns a list of company names or URLs into deep, actionable sales intelligence — fully enriched, ICP-matched, and delivered across your web dashboard and WhatsApp.
 
 ---
 
@@ -12,7 +12,7 @@ Sales Intelligence Automator is built for B2B sales teams. Given a target Ideal 
 2. **Deeply scrapes** each company's web content (HTTP-first, Playwright fallback for SPAs).
 3. **Runs a multi-agent LLM crew** to extract pain points, competitive angles, and personalization hooks.
 4. **Generates a full sales brief** per lead — ICP match, outreach email, objection battlecard, and call prep.
-5. **Delivers intelligence** via a beautiful web dashboard, a live **RAG Chatbot** per lead, a real-time **Objection Whisperer**, and a **WhatsApp / Telegram bot** for field sales reps.
+5. **Delivers intelligence** via a beautiful web dashboard, a live **RAG Chatbot** per lead, a real-time **Objection Whisperer**, and a **WhatsApp bot** for field sales reps.
 
 ---
 
@@ -36,8 +36,8 @@ The system is organized as a layered, asynchronous pipeline:
 ┌────────────────────────▼────────────────────────────────────┐
 │                  DELIVERY LAYER                              │
 │  RAG Chatbot (WebSocket) │ Objection Whisperer (WebSocket)  │
-│  WhatsApp Bot (Meta API) │ Telegram Bot (Bot API)           │
-│  Google Sheets Export    │ Email Agent (Gmail compose)      │
+│  WhatsApp Bot (Twilio)   │ Google Sheets Export             │
+│  Email Agent (Gmail)     │                                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -129,11 +129,11 @@ The `Orchestrator` runs all three concurrently using `asyncio.gather` and merges
 
 ---
 
-## 📱 Messaging Integrations (`pipeline/messaging_agent.py`)
+## 📱 WhatsApp Bot (`pipeline/messaging_agent.py`)
 
-The platform supports **WhatsApp Business Cloud API** and **Telegram Bot API** for field sales reps who need intelligence on the go.
+The platform includes a **WhatsApp bot** (via Twilio Sandbox) for field sales reps who need intelligence on the go. Anyone can test it — no Meta Business account or phone whitelisting required.
 
-### Commands (WhatsApp & Telegram)
+### Commands
 | Command | Action |
 |---|---|
 | `search <company>` | Find a lead by name and set it as active |
@@ -143,9 +143,10 @@ The platform supports **WhatsApp Business Cloud API** and **Telegram Bot API** f
 | `help` | Show all available commands |
 
 ### How it works
-1. The salesperson texts `search Moksh` → bot confirms the lead with ICP score and fit vertical.
-2. They type any objection they hear on the call → bot instantly replies with SAY THIS + THEN ASK.
-3. They type any question → bot answers from the lead's RAG knowledge base.
+1. The reviewer sends the sandbox join message to opt in (see **Testing the WhatsApp Bot** below).
+2. They text `search Moksh` → bot confirms the lead with ICP score and fit vertical.
+3. They type any objection they hear on the call → bot instantly replies with SAY THIS + THEN ASK.
+4. They type any question → bot answers from the lead's RAG knowledge base.
 
 ---
 
@@ -159,9 +160,9 @@ The platform supports **WhatsApp Business Cloud API** and **Telegram Bot API** f
 | **LLM Inference** | Groq API (LLaMA 3.3 70B Versatile) |
 | **Data Validation** | Pydantic v2 |
 | **Database** | MongoDB (Motor async driver) |
-| **Messaging** | Meta WhatsApp Business Cloud API + Telegram Bot API |
-| **Tunneling (dev)** | ngrok |
-| **Containerization** | Docker + OpenShift deployment YAML |
+| **Messaging** | Twilio WhatsApp Sandbox API |
+| **Deployment** | Railway (Docker) |
+| **Containerization** | Docker |
 
 ---
 
@@ -177,13 +178,10 @@ GROQ_API_KEY=your_groq_api_key_here
 MONGODB_URI=mongodb://localhost:27017
 DB_NAME=sales_intelligence
 
-# WhatsApp Business Cloud API (Meta)
-WHATSAPP_ACCESS_TOKEN=your_meta_access_token
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
-WHATSAPP_VERIFY_TOKEN=salesintel_verify_2024
-
-# Telegram Bot
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+# WhatsApp Bot (Twilio Sandbox)
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
 
 # Google Sheets (optional)
 GOOGLE_SHEETS_CREDENTIALS_JSON=path/to/credentials.json
@@ -229,29 +227,64 @@ Open your browser at **http://localhost:8000**
 
 ---
 
-## 📲 Enabling the WhatsApp Bot
+## 📲 Setting Up the WhatsApp Bot (Twilio Sandbox)
 
-1. Create a Meta Developer App at [developers.facebook.com](https://developers.facebook.com).
-2. Add the **WhatsApp** product via Use Cases → "Connect with customers through WhatsApp".
-3. Copy your **Access Token** and **Phone Number ID** into `.env`.
-4. Install and configure ngrok: `brew install ngrok/ngrok/ngrok && ngrok config add-authtoken <your_token>`
-5. Expose your local server: `ngrok http 8000`
-6. In Meta Dashboard → WhatsApp → Configuration:
-   - **Callback URL**: `https://your-ngrok-url.ngrok-free.app/webhook/whatsapp`
-   - **Verify Token**: the value from `WHATSAPP_VERIFY_TOKEN` in your `.env`
-7. Subscribe to the **messages** webhook field.
-8. Add your personal phone number to the authorized recipient list in API Setup.
+The WhatsApp bot uses **Twilio's free Sandbox** — this means anyone can test the bot from their real phone without needing a Meta Business account or phone number whitelisting.
+
+### For the Developer (One-time Setup)
+
+1. Sign up for a free Twilio account at [twilio.com/try-twilio](https://www.twilio.com/try-twilio).
+2. In the Twilio Console, go to **Messaging → Try it out → Send a WhatsApp message**.
+3. Twilio will show you:
+   - A **Sandbox number**: `+1 415 523 8886`
+   - A **Sandbox keyword**: e.g. `join apple-sauce` (unique to your account)
+4. Copy your **Account SID** and **Auth Token** from the Twilio Console Dashboard into your `.env`:
+   ```env
+   TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+   ```
+5. In the Twilio Sandbox settings, set the **"When a message comes in"** webhook URL to:
+   ```
+   https://<your-deployed-url>/webhook/twilio/whatsapp
+   ```
+   Method: **POST**
+
+### For Reviewers / Testers
+
+You can test the live WhatsApp bot in under 60 seconds — **no accounts or API keys needed**:
+
+1. Open **WhatsApp** on your phone.
+2. Save the number **+1 415 523 8886** as a contact (e.g. "Sales Intel Bot").
+3. Send the following message to that number:
+   ```
+   join <sandbox-keyword>
+   ```
+   *(The exact keyword will be shared by the project owner.)*
+4. Twilio will reply confirming you're connected to the sandbox.
+5. You're in! Now try these commands:
+
+| Message to Send | What Happens |
+|---|---|
+| `help` | See all available commands |
+| `search <company>` | Find a lead by name (must be analyzed on the web dashboard first) |
+| `whisperer` | Switch to Objection Whisperer mode |
+| `chat` | Switch to RAG Q&A mode |
+| `status` | See your currently active lead and mode |
+| *(any free text in whisperer mode)* | e.g. "We already have a vendor" → get an instant SAY THIS + THEN ASK counter |
+| *(any free text in chat mode)* | Ask anything about the active lead → AI answers from scraped data |
+
+> **Note:** The sandbox session lasts 72 hours. After that, just send the `join` message again to reconnect.
 
 ---
 
 ## 🖥️ How to Use the Web Dashboard
 
-1. Navigate to **http://localhost:8000**.
-2. Fill in your **ICP profile** (company verticals, target services, sector focus) on the ICP Builder page.
-3. On the Home page, paste company names or URLs (one per line) and set the target region.
-4. Click **Start Discovery** — the pipeline runs fully autonomously in the background.
-5. The **Processing** page shows real-time per-lead status updates.
-6. On the **Results** page:
+1. Fill in your **ICP profile** (company verticals, target services, sector focus) on the ICP Builder page.
+2. On the Home page, paste company names or URLs (one per line) and set the target region.
+3. Click **Start Discovery** — the pipeline runs fully autonomously in the background.
+4. The **Processing** page shows real-time per-lead status updates.
+5. On the **Results** page:
    - Scroll through lead cards to review ICP scores, sales briefs, and generated emails.
    - Click the **chat bubble** icon to open the floating RAG Chatbot for that lead.
    - Click the **microphone** icon to open the live Objection Whisperer.
@@ -276,13 +309,3 @@ Every LLM response goes through a Pydantic model before touching the database. I
 ### Ad Filtering at the Source
 Rather than cleaning bad results after the fact, the discovery pipeline filters advertisements, tracking URLs, country placeholder pages, and directory listings **before** any scraping is attempted. This prevents wasted Playwright sessions and keeps the lead quality high.
 
----
-
-## 🔮 Future Improvements
-
-- **Redis-backed session store** — Replace in-memory `_sessions` dict with Redis to support multi-worker deployments and survive server restarts.
-- **Celery task queue** — Decouple scraping and LLM processing into background workers for true horizontal scalability.
-- **LinkedIn enrichment** — Cross-reference leads with LinkedIn's API for verified employee counts, funding rounds, and executive contact data.
-- **Stealth proxy rotation** — Use commercial rotating proxy pools to eliminate 403 errors on heavily protected enterprise domains.
-- **WhatsApp Discovery mode** — Background task that runs the full discovery pipeline in response to a WhatsApp command, messaging back when results are ready.
-- **CRM sync** — Push enriched lead data directly to HubSpot, Salesforce, or Pipedrive via their APIs.
