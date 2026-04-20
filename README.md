@@ -246,7 +246,7 @@ The WhatsApp bot uses **Twilio's free Sandbox** — this means anyone can test t
    ```
 5. In the Twilio Sandbox settings, set the **"When a message comes in"** webhook URL to:
    ```
-   https://<your-deployed-url>/webhook/twilio/whatsapp
+   https://https://sales-intelligence-automator.up.railway.app/webhook/twilio/whatsapp
    ```
    Method: **POST**
 
