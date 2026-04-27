@@ -3,6 +3,8 @@
 An autonomous, multi-agent B2B sales intelligence platform that turns a list of company names or URLs into deep, actionable sales intelligence — fully enriched, ICP-matched, and delivered across your web dashboard and WhatsApp.
 
 ---
+https://sales-intelligence-automator.up.railway.app
+---
 
 ## ✨ Overview
 
